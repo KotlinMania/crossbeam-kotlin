@@ -1,28 +1,23 @@
-# Crossbeam emitted-source redo status
+# Crossbeam port status
 
-Work in progress. The manual Crossbeam algorithms/tests were removed. Current product/test files come from actual native-kexe output plus recorded necessary repairs. The full source does not compile. Eight original Rust-derived tests now compile and pass in focused Kotlin/Native checks (2026-11-11). No complete port, usable Rayon prerequisite, physical-layout or API-equivalence claim is made.
+Work in progress. Product and original-test sources are generated from upstream commit `2920c984290229ab4e0ca0452ef09e48a82063f3`, then repaired directly in their actual source sets. The prior hand implementation is not retained in product sources.
 
-## Exact current operations
+The latest complete scoped generator pass processed 44 Rust inputs and placed 32 normal artifacts plus 7 inline-test artifacts. The existing regeneration driver replays exact reviewed repairs, including static collector/registry placement, atomics/stamp arithmetic and Steal variants. The real upstream Rand test dependency uses `io.github.kotlinmania:rand-kotlin:0.2.0` and its actual `threadRng`/`randomRange` API.
 
-- Removed 55 manually adapted files, including old epoch/deque implementations, manual test/scoping helpers and the hand-transcribed Swift test. No source snapshots or manual substitutes remain.
-- Regenerated all 44 scoped Rust src/test/example/benchmark inputs with verified native debug kexe SHA 4e882c692974abb057b6892486ab7503b71f80428e36f21deef029e596efb192. Raw ABI mode and actual compiler-reported target cfg are now explicit. The original upstream clone remains clean at 2920c984290229ab4e0ca0452ef09e48a82063f3.
-- Native output was written directly into real source paths: 32 normal artifacts and 7 inline-test artifacts containing 28 original Rust declarations. The 127 total emitted test declarations have direct Rust function/macro name-origin matches; that is not runtime or body-equivalence proof.
-- Raw mode preserves ULong pointer addresses and removes the former default-mode hashCode address substitutions. Real allocation/ownership APIs are still missing.
-- Newly rejected files and stale test artifacts were removed. Inactive Loom emits no source. No old manual implementation is retained for a rejected file.
-- Generated FFI companions, real OS/C/Rust bridge inputs and platform/loaders remain. All project targets/validators and native/JVM/N-API flags remain enabled. The three Cargo build.rs files are host tooling, not silently counted as translated runtime modules.
+## Validation
 
-Commands, raw hashes, exact repair diffs and removals: regeneration/redo-adoption.json. Reproducible driver: regeneration/regenerate.py. Original test name/macro evidence: regeneration/test-origin-map.json.
+On 2026-11-11, the requested single `./gradlew build` ran with no options and failed after 22 seconds at `:compileKotlinAndroidNativeArm64`. Remaining generated primitive imports and atomic, allocation/pointer, synchronization and thread calls do not resolve. No tests ran in that full build, and later target stages did not pass. The project-local log is `build/verification/generated-seqlock/full-build.log`.
 
-## Current validation and blockers
+Earlier focused Kotlin/Native 2.4.21 macOS ARM64 validation with `-Werror` and the real platform C bridge passed eight original-source tests: both seq_lock/seq_lock_wide `test_abort` tests, all five `deferred.rs` tests, and the Backoff::spin Rustdoc multiplication example. These focused results are not a full-project pass. The later full regeneration and static repairs have not received a successful complete build.
 
-The last full metadata compilation failed. Full-project compilation has not been rerun after the current focused repairs. Historical full-suite receipts still describe removed source, not current acceptance.
+Deferred stores a Kotlin callback directly and invokes it once. Its upstream on_stack/on_heap assertions check callback behavior, not Kotlin physical storage placement. The independent Android consumer now contains only the original Backoff::spin Rustdoc check, replacing copied unrelated consumer fixtures; that publication consumer has not run.
 
-Current focused validation: Kotlin/Native 2.4.21, macOS ARM64, -Werror, using the real platform C bridge. Both original seq_lock/seq_lock_wide test_abort tests pass, as do all five original deferred.rs tests and the original Backoff::spin Rustdoc multiplication example. Generated SeqLock atomics and wrapping arithmetic were repaired; the abort path now prevents later close from incrementing the stamp. Deferred stores the Kotlin callback directly and consumes it once. Its upstream on_stack/on_heap assertions test callback behavior, not Kotlin physical storage placement. Subsequent file-static collector/registry and epoch-arithmetic repairs were inspected but not compiled. No whole-project or layout-equivalence pass is claimed.
+## Remaining source work
 
-Six inputs currently reject explicitly: AtomicCell, WaitGroup, Collector, Guard, Internal and epoch lib.rs. Reasons are recorded verbatim in regeneration/redo-compile-summary.json. These require genuine destructor/ownership or core UnsafeCell type resolution, not discarded semantics or local stand-ins.
+Six Rust inputs still reject explicitly: AtomicCell, WaitGroup, Collector, Guard, Internal and epoch lib.rs. No old hand implementation substitutes for those missing outputs. Other generated modules still need their actual primitive APIs connected and remaining source repairs. CachePadded physical layout has not been established.
 
-Other emitted modules still need canonical Rust atomics, allocation/Box/pointers/MaybeUninit, Arc/Mutex/Condvar/Once, TLS/destruction, associated-type and typed Result semantics. CachePadded's comments do not supply physical alignment. The block-local Rust static collector is not faithfully lowered. Rustdoc examples are not automatically emitted as executable tests, and no manual replacements were invented. Source/API/body audit remains necessary even after compilation eventually succeeds.
+## Local preservation and holds
 
-## Holds
+Local Git was initialized before further replacement. Commit `cb6b8aa6d081b545196574010e1de72c7133dace` preserves the initial current tree; `25f46a03696e8ab9c26e9e6637f54bc05693ac6d` preserves regeneration and configuration repairs. Earlier deleted files were not recovered. No remote is configured.
 
-No CI, push, PR, merge, local publication or public release. New portable foreign JDK/Node download/execution remains held. Foreign payloads and previous XML counts are not current-source runtime proof.
+All configured targets and Native/JVM/N-API channels remain enabled. No CI, push, PR, merge, publication or release was performed.
