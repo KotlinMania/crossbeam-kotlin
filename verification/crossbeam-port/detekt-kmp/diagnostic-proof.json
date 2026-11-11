@@ -1,0 +1,15 @@
+{
+  "purpose": "analyzer diagnostic probe, not a Crossbeam/Rust test and not included in suite counts",
+  "results": {
+    "valid": {
+      "exit_code": 0,
+      "compiler_diagnostics": []
+    },
+    "invalid": {
+      "exit_code": 0,
+      "compiler_diagnostics": [
+        "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/build/verification/detekt-module-diagnostic/Platform.kt:1:33: error: return type mismatch: expected 'Int', actual 'String'."
+      ]
+    }
+  }
+}

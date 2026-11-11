@@ -1,0 +1,5 @@
+gradle.projectsEvaluated {
+    rootProject.tasks.register('crossbeamAllDetekt') {
+        dependsOn(rootProject.tasks.matching { it.name.startsWith('detekt') && !it.name.startsWith('detektBaseline') && it.name != 'detektGenerateConfig' })
+    }
+}

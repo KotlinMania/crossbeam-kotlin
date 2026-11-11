@@ -1,0 +1,11 @@
+--- build/verification/redo-emission/utils/src/atomic/SeqLock.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLock.kt
+@@ -1,7 +1,7 @@
+ // port-lint: source crossbeam-utils/src/atomic/seq_lock.rs
+ package io.github.kotlinmania.crossbeam.utils.atomic.seqlock
+ 
+-import io.github.kotlinmania.crossbeam.utils.crossbeamutils.src.backoff.Backoff
++import io.github.kotlinmania.crossbeam.utils.backoff.Backoff
+ 
+ /**
+  * A simple stamped lock.

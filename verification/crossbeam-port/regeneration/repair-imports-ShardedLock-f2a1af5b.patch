@@ -1,0 +1,11 @@
+--- build/verification/redo-emission/utils/src/sync/ShardedLock.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/shardedlock/ShardedLock.kt
+@@ -3,7 +3,7 @@
+ 
+ import io.github.kotlinmania.crossbeam.utils.COpaquePointer
+ import io.github.kotlinmania.crossbeam.utils.crossbeamchannel.src.utils.Mutex
+-import io.github.kotlinmania.crossbeam.utils.crossbeamutils.src.cachepadded.CachePadded
++import io.github.kotlinmania.crossbeam.utils.cachepadded.CachePadded
+ import io.github.kotlinmania.crossbeam.utils.sync.oncelock.OnceLock
+ 
+ public class DebugStruct(

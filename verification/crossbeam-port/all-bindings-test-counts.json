@@ -1,0 +1,75 @@
+{
+  "macosArm64Test": {
+    "tests": 79,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "jvmTest": {
+    "tests": 58,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "packagedJniTest": {
+    "tests": 58,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "testAndroidHostTest": {
+    "tests": 58,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "jsNodeTest": {
+    "tests": 58,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "jsBrowserTest": {
+    "tests": 58,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "wasmJsNodeTest": {
+    "tests": 58,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "wasmJsBrowserTest": {
+    "tests": 58,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "wasmWasiNodeTest": {
+    "tests": 58,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "iosSimulatorArm64Test": {
+    "tests": 79,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "tvosSimulatorArm64Test": {
+    "tests": 79,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "watchosSimulatorArm64Test": {
+    "tests": 79,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "_scope": "Historical pre-reset suite counts. Manual port/test source has since been removed and replaced with actual emission. Current metadata compilation fails; no current tests executed."
+}

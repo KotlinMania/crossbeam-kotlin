@@ -1,0 +1,169 @@
+--- build/verification/regenerated-kexe/epoch/src/epoch.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Epoch.kt
+@@ -1,148 +1,30 @@
+ // port-lint: source crossbeam-epoch/src/epoch.rs
+-package io.github.kotlinmania.crossbeam.epoch.epoch
++package io.github.kotlinmania.crossbeam.epoch
+ 
+-import io.github.kotlinmania.crossbeam.crossbeamepoch.src.atomic.Atomic
+-import io.github.kotlinmania.crossbeam.primitive.sync.atomic.Ordering
+-
+-// The global epoch
+-//
+-// The last bit in this number is unused and is always zero. Every so often the global epoch is
+-// incremented, i.e. we say it "advances". A pinned participant may advance the global epoch only
+-// if all currently pinned participants have been pinned in the current epoch.
+-//
+-// If an object became garbage in some epoch, then we can be sure that after two advancements no
+-// participant will hold a reference to it. That is the crux of safe memory reclamation.
+-
+-public typealias AtomicEpochRepr = Atomic.AtomicUsize
+-
+-public typealias EpochRepr = Int
+-
+-public typealias EpochReprSigned = Int
++import kotlin.concurrent.atomics.AtomicLong
+ 
+ /**
+- * An epoch that can be marked as pinned or unpinned.
+- *
+- * Internally, the epoch is represented as an integer that wraps around at some unspecified point
+- * and a flag that represents whether it is pinned or unpinned.
++ * An epoch and its pin flag. The low bit is the pin flag; the remaining bits form a wrapping
++ * counter. Two advancements after retirement establish the grace period for reclamation.
+  */
+ internal data class Epoch(
+-    /**
+-     * The least significant bit is set if pinned. The rest of the bits hold the epoch.
+-     */
+-    public var data: EpochRepr = 0,
++    val data: Long = 0L,
+ ) {
+-    /**
+-     * Returns the number of epochs `self` is ahead of `rhs`.
+-     *
+-     * Internally, epochs are represented as numbers in the range `(isize::MIN / 2) .. (isize::MAX
+-     * / 2)`, so the returned distance will be in the same interval.
+-     */
+-    internal fun wrappingSub(rhs: Epoch): EpochReprSigned {
+-        // The result is the same with `(self.data & !1).wrappingSub(rhs.data & !1) as Long>> 1`,
+-        // because the possible difference of LSB in `(self.data & !1).wrappingSub(rhs.data & !1)`
+-        // will be ignored in the shift operation.
+-        return this.data.wrappingSub(rhs.data and 1.inv()) shr 1
+-    }
+-
+-    /**
+-     * Returns `true` if the epoch is marked as pinned.
+-     */
+-    internal fun isPinned(): Boolean {
+-        return (this.data and 1) == 1
+-    }
+-
+-    /**
+-     * Returns the same epoch, but marked as pinned.
+-     */
+-    internal fun pinned(): Epoch {
+-        return Epoch(data = this.data or 1)
+-    }
+-
+-    /**
+-     * Returns the same epoch, but marked as unpinned.
+-     */
+-    internal fun unpinned(): Epoch {
+-        return Epoch(data = this.data and 1.inv())
+-    }
+-
+-    /**
+-     * Returns the successor epoch.
+-     *
+-     * The returned epoch will be marked as pinned only if the previous one was as well.
+-     */
+-    internal fun successor(): Epoch {
+-        return Epoch(data = this.data.wrappingAdd(2))
+-    }
+-
+-    public companion object {
+-        /**
+-         * Returns the starting epoch in unpinned state.
+-         */
+-        internal fun starting(): Epoch {
+-            return Epoch.default()
+-        }
+-    }
++    fun wrappingSub(other: Epoch): Long = (data - (other.data and -2L)) shr 1
++    fun isPinned(): Boolean = data and 1L != 0L
++    fun pinned(): Epoch = Epoch(data or 1L)
++    fun unpinned(): Epoch = Epoch(data and -2L)
++    fun successor(): Epoch = Epoch(data + 2L)
+ }
+ 
+-/**
+- * An atomic value that holds an `Epoch`.
+- */
+-internal data class AtomicEpoch(
+-    /**
+-     * Since `Epoch` is just a wrapper around `Int`, an `AtomicEpoch` is similarly represented
+-     * using an `AtomicUsize`.
+-     */
+-    public var data: AtomicEpochRepr = AtomicEpochRepr(),
++/** Kotlin's atomic operations are sequentially consistent, strengthening the Rust orderings. */
++internal class AtomicEpoch(
++    epoch: Epoch = Epoch(),
+ ) {
+-    /**
+-     * Loads a value from the atomic epoch.
+-     */
+-    internal fun load(ord: Ordering): Epoch {
+-        return Epoch(data = this.data.load(ord))
++    private val data = AtomicLong(epoch.data)
++    fun load(): Epoch = Epoch(data.load())
++    fun store(epoch: Epoch) {
++        data.store(epoch.data)
+     }
+-
+-    /**
+-     * Stores a value into the atomic epoch.
+-     */
+-    internal fun store(epoch: Epoch, ord: Ordering) {
+-        this.data.store(epoch.data, ord)
+-    }
+-
+-    /**
+-     * Stores a value into the atomic epoch if the current value is the same as `current`.
+-     *
+-     * The return value is a result indicating whether the new value was written and containing
+-     * the previous value. On success this value is guaranteed to be equal to `current`.
+-     *
+-     * This method takes two `Ordering` arguments to describe the memory
+-     * ordering of this operation. `success` describes the required ordering for the
+-     * read-modify-write operation that takes place if the comparison with `current` succeeds.
+-     * `failure` describes the required ordering for the load operation that takes place when
+-     * the comparison fails. Using `Acquire` as success ordering makes the store part
+-     * of this operation `Relaxed`, and using `Release` makes the successful load
+-     * `Relaxed`. The failure ordering can only be `SeqCst`, `Acquire` or `Relaxed`
+-     * and must be equivalent to or weaker than the success ordering.
+-     */
+-    internal fun compareExchange(current: Epoch, new: Epoch, success: Ordering, failure: Ordering): Result<Epoch> {
+-        return run {
+-            val matchVal = this.data.compareExchange(current.data, new.data, success, failure)
+-            if (matchVal.isSuccess) {
+-                val data = matchVal.getOrThrow()
+-                Result.success(Epoch(data = data))
+-            } else {
+-                val data1 = matchVal.exceptionOrNull()!!
+-                Result.failure(Epoch(data = data1))
+-            }
+-        }
+-    }
+-
+-    public companion object {
+-        /**
+-         * Creates a new atomic epoch.
+-         */
+-        internal fun new(epoch: Epoch): AtomicEpoch {
+-            val data = AtomicEpochRepr.new(epoch.data)
+-            return AtomicEpoch(data = data)
+-        }
+-    }
++    fun compareExchange(current: Epoch, new: Epoch): Boolean = data.compareAndSet(current.data, new.data)
+ }

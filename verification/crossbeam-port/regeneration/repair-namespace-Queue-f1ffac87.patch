@@ -1,0 +1,61 @@
+--- build/verification/redo-emission/epoch/src/sync/Queue.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/Queue.kt
+@@ -1,15 +1,13 @@
+ // port-lint: source crossbeam-epoch/src/sync/queue.rs
+ package io.github.kotlinmania.crossbeam.epoch.sync.queue
+ 
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamchannel.tests.after.recv
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.atomic.Atomic
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.atomic.Owned
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.atomic.Shared
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.default.pin
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.guard.Guard
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.guard.unprotected
+-import io.github.kotlinmania.crossbeam.utils.CachePadded
+-import io.github.kotlinmania.crossbeam.utils.thread
++import io.github.kotlinmania.crossbeam.epoch.atomic.Atomic
++import io.github.kotlinmania.crossbeam.epoch.atomic.Owned
++import io.github.kotlinmania.crossbeam.epoch.atomic.Shared
++import io.github.kotlinmania.crossbeam.epoch.default.pin
++import io.github.kotlinmania.crossbeam.epoch.guard.Guard
++import io.github.kotlinmania.crossbeam.epoch.guard.unprotected
++import io.github.kotlinmania.crossbeam.utils.cachepadded.CachePadded
+ 
+ // Michael-Scott lock-free queue.
+ //
+@@ -267,7 +265,7 @@
+ public fun pushTryPopManySpsc() {
+     val q: Queue<Long> = Queue.new()
+     check(q.isEmpty())
+-    thread.scope({ scope ->
++    io.github.kotlinmania.crossbeam.utils.thread.scope({ scope ->
+         scope.spawn({
+             var next = 0
+             while (next < CONC_COUNT) {
+@@ -307,7 +305,7 @@
+     }
+     val q: Queue<Long> = Queue.new()
+     check(q.isEmpty())
+-    thread.scope({ scope ->
++    io.github.kotlinmania.crossbeam.utils.thread.scope({ scope ->
+         for (i in 0 until 3) {
+             val q1 = q
+             scope.spawn({ recv(i, q1) })
+@@ -328,7 +326,7 @@
+     }
+     val q: Queue<LR> = Queue.new()
+     check(q.isEmpty())
+-    thread.scope({ scope ->
++    io.github.kotlinmania.crossbeam.utils.thread.scope({ scope ->
+         for (t in 0 until 2) {
+             scope.spawn({
+                 for (i in CONC_COUNT - 1L until CONC_COUNT) {
+@@ -370,7 +368,7 @@
+ @Test
+ public fun pushPopManySpsc() {
+     val q: Queue<Long> = Queue.new()
+-    thread.scope({ scope ->
++    io.github.kotlinmania.crossbeam.utils.thread.scope({ scope ->
+         scope.spawn({
+             var next = 0
+             while (next < CONC_COUNT) {

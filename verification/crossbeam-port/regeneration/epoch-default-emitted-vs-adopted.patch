@@ -1,0 +1,118 @@
+--- build/verification/regenerated-kexe/epoch/src/default.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Default.kt
+@@ -1,69 +1,54 @@
+ // port-lint: source crossbeam-epoch/src/default.rs
+-package io.github.kotlinmania.crossbeam.epoch.default
++package io.github.kotlinmania.crossbeam.epoch
+ 
+-import io.github.kotlinmania.crossbeam.collector.Collector
+-import io.github.kotlinmania.crossbeam.collector.LocalHandle
+-import io.github.kotlinmania.crossbeam.crossbeamepoch.src.default.pin
+-import io.github.kotlinmania.crossbeam.guard.Guard
+-import io.github.kotlinmania.crossbeam.primitive.threadLocal
+-import io.github.kotlinmania.crossbeam.sync.oncelock.OnceLock
+-import io.github.kotlinmania.crossbeamutils.thread
++import io.github.kotlinmania.crossbeam.utils.platform.currentThreadId
++import kotlin.concurrent.atomics.AtomicReference
+ 
+-// The default garbage collector.
+-//
+-// For each thread, a participant is lazily initialized on its first use, when the current thread
+-// is registered in the default collector.  If initialized, the thread's participant will get
+-// destructed on thread exit, which in turn unregisters the thread.
++private val default = Collector()
++private data class ActiveHandle(
++    val thread: Long,
++    val handle: LocalHandle,
++)
++private val activeHandles = AtomicReference<kotlin.collections.List<ActiveHandle>>(emptyList())
+ 
+-public fun collector(): Collector {
+-    return run {
+-        /**
+-         * The global data for the default garbage collector.
+-         */
+-        var COLLECTOR: OnceLock<Collector> = OnceLock.new()
+-        COLLECTOR.getOrInit(Collector::new)
++/** The default global collector, borrowed for the lifetime of the process. */
++public fun defaultCollector(): Collector = Collector(default.global, false)
++
++/**
++ * Pin the current thread in the default collector, preserving reentrant pinning.
++ *
++ * Unlike Rust's thread-exit TLS destructor, this portable adapter unregisters the default handle
++ * when its last guard closes. This eagerly publishes the local bag without reclaiming it early,
++ * and prevents stale OS thread IDs from retaining abandoned participants. Explicitly registered
++ * [LocalHandle]s retain the upstream local-bag batching behavior across successive pinnings.
++ */
++public fun pin(): Guard {
++    val thread = currentThreadId()
++    while (true) {
++        val current = activeHandles.load()
++        current.firstOrNull { it.thread == thread }?.let { return it.handle.pin() }
++        val handle = default.register()
++        val entry = ActiveHandle(thread, handle)
++        if (activeHandles.compareAndSet(current, current + entry)) {
++            handle.local.afterLastGuard = {
++                while (true) {
++                    val entries = activeHandles.load()
++                    if (activeHandles.compareAndSet(entries, entries.filterNot { it === entry })) break
++                }
++                handle.close()
++            }
++            return handle.pin()
++        }
++        handle.close()
+     }
+ }
+ 
+-/**
+- * Pins the current thread.
+- */
+-public fun pin(): Guard {
+-    return withHandle({ handle -> handle.pin() })
++/** True while at least one guard from [pin] is active on the current thread. */
++public fun isPinned(): Boolean {
++    val thread = currentThreadId()
++    return activeHandles
++        .load()
++        .firstOrNull { it.thread == thread }
++        ?.handle
++        ?.isPinned() ?: false
+ }
+-
+-/**
+- * Returns `true` if the current thread is pinned.
+- */
+-public fun isPinned(): Boolean {
+-    return withHandle({ handle -> handle.isPinned() })
+-}
+-
+-/**
+- * Returns the default global collector.
+- */
+-public fun defaultCollector(): Collector {
+-    return collector()
+-}
+-
+-public fun <R> withHandle(f: (LocalHandle) -> R): R {
+-    return HANDLE.tryWith({ h -> f(h) }).unwrapOrElse({ f(collector().register()) })
+-}
+-
+-@Test
+-public fun pinWhileExiting() {
+-    class Foo {
+-        public fun drop() {
+-            // Pin after `HANDLE` has been dropped. This must not panic.
+-            pin()
+-        }
+-    }
+-    threadLocal(FOO, Foo, Foo)
+-    thread.scope({ scope ->
+-        scope.spawn({
+-            // Initialize `FOO` and then `HANDLE`.
+-            FOO.with({ Unit })
+-            pin()
+-        })
+-    }).unwrap()
+-}

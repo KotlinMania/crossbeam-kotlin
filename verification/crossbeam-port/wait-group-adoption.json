@@ -1,0 +1,229 @@
+{
+  "status": "SUPERSEDED: the hand-adapted Kotlin WaitGroup and helpers were deleted. Actual fresh kexe WaitGroup emission is now installed; it does not compile. Retained entries below are historical provenance only.",
+  "files": [
+    {
+      "source": "build/verification/wait-group-staged/src/native/nativeTest/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroupChannel.kt",
+      "destination": "src/native/nativeTest/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroupChannel.kt",
+      "sha256": "bde86dc4ed77ddbb38a4c33b2826c20178d0bb2ab00433b4e2f11ef3b5d715c8",
+      "adopted_sha256": "77df6c98e0a0e7511ffc51c9c07cd6149ab1bb80f6718108e16a47eff287dbec"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/native/nativeTest/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroupTest.kt",
+      "destination": "src/native/nativeTest/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroupTest.kt",
+      "sha256": "86e500f17f1397ade8d0473920d51c793948628fd5227bf182536e09254443da",
+      "adopted_sha256": "86e500f17f1397ade8d0473920d51c793948628fd5227bf182536e09254443da"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/native/posix/posixTest/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroupSleepPosix.kt",
+      "destination": "src/native/posix/posixTest/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroupSleepPosix.kt",
+      "sha256": "04889cb055126557c3aa791616076f56567c36af4da491ce822b423203caf6e1",
+      "adopted_sha256": "04889cb055126557c3aa791616076f56567c36af4da491ce822b423203caf6e1"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/native/interop/cinterop/UtilsSyncMonitorFfi.def",
+      "destination": "src/native/interop/cinterop/UtilsSyncMonitorFfi.def",
+      "sha256": "ae1d07a27259f2122b1b8395994674d57e7e289dfaa1ac605a5a727400da7cbf",
+      "adopted_sha256": "ae1d07a27259f2122b1b8395994674d57e7e289dfaa1ac605a5a727400da7cbf"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/native/interop/cinterop/utils_sync_monitor_ffi_wrapper.c",
+      "destination": "src/native/interop/cinterop/utils_sync_monitor_ffi_wrapper.c",
+      "sha256": "51e43150cf6eabf22093aca660f60500d9192300b732419bbd1da3eb72c4f57b",
+      "adopted_sha256": "51e43150cf6eabf22093aca660f60500d9192300b732419bbd1da3eb72c4f57b"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/native/interop/cinterop/utils_sync_monitor_ffi_wrapper.h",
+      "destination": "src/native/interop/cinterop/utils_sync_monitor_ffi_wrapper.h",
+      "sha256": "894027b612c2e3fa09daff9f9b273bce4748b06ffc0a81869255f97f41dc7bd1",
+      "adopted_sha256": "894027b612c2e3fa09daff9f9b273bce4748b06ffc0a81869255f97f41dc7bd1"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/native/mingw/mingwX64Test/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroupSleepWindows.kt",
+      "destination": "src/native/mingw/mingwX64Test/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroupSleepWindows.kt",
+      "sha256": "7a55d36fab96d38b897db4b2e62c21b4a15ce077e3713d4ed675cea7c68fe96c",
+      "adopted_sha256": "7a55d36fab96d38b897db4b2e62c21b4a15ce077e3713d4ed675cea7c68fe96c"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorNative.kt",
+      "destination": "src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorNative.kt",
+      "sha256": "c274c4883deeb972aed59df40407d7fd3cfab71bd0a2693d044c778115a1321b",
+      "adopted_sha256": "c274c4883deeb972aed59df40407d7fd3cfab71bd0a2693d044c778115a1321b"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiNativeActuals.kt",
+      "destination": "src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiNativeActuals.kt",
+      "sha256": "a1cdfee73ab348abd1685156748dcbf18dd8e49b358de22102e45445fb215632",
+      "adopted_sha256": "a1cdfee73ab348abd1685156748dcbf18dd8e49b358de22102e45445fb215632"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/js/wasm/wasmJsMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorWasmJs.kt",
+      "destination": "src/js/wasm/wasmJsMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorWasmJs.kt",
+      "sha256": "7ec05d858b1c895678d499a0c2c362edaeed2095e61d4af6d4075a113eaedb09",
+      "adopted_sha256": "7ec05d858b1c895678d499a0c2c362edaeed2095e61d4af6d4075a113eaedb09"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/js/wasm/wasmJsMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiWasmJsActuals.kt",
+      "destination": "src/js/wasm/wasmJsMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiWasmJsActuals.kt",
+      "sha256": "9b566e2807b2c90e2708378e5d0166194e0f319de5e5ba22c48b38875eee54c0",
+      "adopted_sha256": "9b566e2807b2c90e2708378e5d0166194e0f319de5e5ba22c48b38875eee54c0"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/js/wasm/wasmWasiMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorWasmWasi.kt",
+      "destination": "src/js/wasm/wasmWasiMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorWasmWasi.kt",
+      "sha256": "7ec05d858b1c895678d499a0c2c362edaeed2095e61d4af6d4075a113eaedb09",
+      "adopted_sha256": "7ec05d858b1c895678d499a0c2c362edaeed2095e61d4af6d4075a113eaedb09"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/js/wasm/wasmWasiMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiWasmWasiActuals.kt",
+      "destination": "src/js/wasm/wasmWasiMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiWasmWasiActuals.kt",
+      "sha256": "e31a5228724bc39b8494ea3e07e3e945850a68aec3a75e21746a1204c96c4dae",
+      "adopted_sha256": "e31a5228724bc39b8494ea3e07e3e945850a68aec3a75e21746a1204c96c4dae"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/js/node-ffi/src/crossbeam_utils_sync_monitor_ffi_bindings.cpp",
+      "destination": "src/js/node-ffi/src/crossbeam_utils_sync_monitor_ffi_bindings.cpp",
+      "sha256": "ab2556b35dc0d68283ae6f31ef90baf146a470e51c3c1f222e7b59a4d8f99ccd",
+      "adopted_sha256": "ab2556b35dc0d68283ae6f31ef90baf146a470e51c3c1f222e7b59a4d8f99ccd"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/js/jsMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorJs.kt",
+      "destination": "src/js/jsMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorJs.kt",
+      "sha256": "7ec05d858b1c895678d499a0c2c362edaeed2095e61d4af6d4075a113eaedb09",
+      "adopted_sha256": "7ec05d858b1c895678d499a0c2c362edaeed2095e61d4af6d4075a113eaedb09"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/js/jsMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiJsActuals.kt",
+      "destination": "src/js/jsMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiJsActuals.kt",
+      "sha256": "b29c1d4c36afad635a7de7ef3140a6001216abcf9d8e133e7dfc785a4ebb8975",
+      "adopted_sha256": "b29c1d4c36afad635a7de7ef3140a6001216abcf9d8e133e7dfc785a4ebb8975"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/jvm/jvmMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorJvm.kt",
+      "destination": "src/jvm/jvmMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorJvm.kt",
+      "sha256": "c274c4883deeb972aed59df40407d7fd3cfab71bd0a2693d044c778115a1321b",
+      "adopted_sha256": "c274c4883deeb972aed59df40407d7fd3cfab71bd0a2693d044c778115a1321b"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/jvm/jvmMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiJvmActuals.kt",
+      "destination": "src/jvm/jvmMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiJvmActuals.kt",
+      "sha256": "e2b4c919cc768a9278fd046201744473f9760cc18e2e58e479d2884552678bb6",
+      "adopted_sha256": "24fe3d05afc4d162a937e04469a4f48209714f01abc3d0642596062311d44e39"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/jvm/jvmMain/c/crossbeam_utils_sync_monitor_ffi_jni.c",
+      "destination": "src/jvm/jvmMain/c/crossbeam_utils_sync_monitor_ffi_jni.c",
+      "sha256": "17b4c0b5f4403bef4c60b09a4f75f8cc5ad7ecaf25a896af07f0c5dd88d9fb83",
+      "adopted_sha256": "17b4c0b5f4403bef4c60b09a4f75f8cc5ad7ecaf25a896af07f0c5dd88d9fb83"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/NoThreadsMonitor.kt",
+      "destination": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/NoThreadsMonitor.kt",
+      "sha256": "7bcff803fac8e70997f814df117cba4a381ae9c906d1f9da3c55de46d41a0ae5",
+      "adopted_sha256": "7bcff803fac8e70997f814df117cba4a381ae9c906d1f9da3c55de46d41a0ae5"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/Monitor.kt",
+      "destination": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/Monitor.kt",
+      "sha256": "c553514aa1f3f3b0ee01f69f1dd8d00c8bbd9bed3c433f3a8b2b134a844c7b60",
+      "adopted_sha256": "c553514aa1f3f3b0ee01f69f1dd8d00c8bbd9bed3c433f3a8b2b134a844c7b60"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/Monitor.kt",
+      "destination": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/Monitor.kt",
+      "sha256": "92c66d268137856a2d75a5304e4728ca723d7af10256ebaae7d9f67164589ce1",
+      "adopted_sha256": "d5d21f06b104d401555f205019635849443f1c5e1b3668fa655f6fb4066325f5"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroup.kt",
+      "destination": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroup.kt",
+      "sha256": "98635240199311c2266f98230fef8a6bc174aa964cc08782ef5f48792d99cadd",
+      "adopted_sha256": "6395819944b1672cce4c1cfd0ec82d230bd6584a55274293c4cad7a198aacb98"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/android/jvm/androidMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorAndroid.kt",
+      "destination": "src/android/jvm/androidMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorAndroid.kt",
+      "sha256": "c274c4883deeb972aed59df40407d7fd3cfab71bd0a2693d044c778115a1321b",
+      "adopted_sha256": "c274c4883deeb972aed59df40407d7fd3cfab71bd0a2693d044c778115a1321b"
+    },
+    {
+      "source": "build/verification/wait-group-staged/src/android/jvm/androidMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiAndroidActuals.kt",
+      "destination": "src/android/jvm/androidMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiAndroidActuals.kt",
+      "sha256": "8ca56091eff3da53c162c05d2d2957e35fcb16e689cfae1605f05aa41f00d63f",
+      "adopted_sha256": "8ca56091eff3da53c162c05d2d2957e35fcb16e689cfae1605f05aa41f00d63f"
+    }
+  ],
+  "generator_sha256": "d6b02d710963654105f075f0e8266cfaa650887ab2920ec2559e9daca6d9762e",
+  "input": "src/native/interop/rust/monitor_inline.rs",
+  "raw_companions": [
+    {
+      "path": "build/verification/monitor-inline-generated/src/android/jvm/androidMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiAndroidActuals.kt",
+      "sha256": "dc1b9a311a2ca30adff706ad7791a460c546e5cd430a1baeaa7a454ba27cf3cd"
+    },
+    {
+      "path": "build/verification/monitor-inline-generated/src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/Monitor.kt",
+      "sha256": "92c66d268137856a2d75a5304e4728ca723d7af10256ebaae7d9f67164589ce1"
+    },
+    {
+      "path": "build/verification/monitor-inline-generated/src/js/jsMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiJsActuals.kt",
+      "sha256": "dab2e77b4033e43eb03ab42ac339c9a00df3e512445a9c6f8220a990985c9261"
+    },
+    {
+      "path": "build/verification/monitor-inline-generated/src/js/node-crossbeam/src/crossbeam_utils_sync_monitor_ffi_bindings.cpp",
+      "sha256": "ab2556b35dc0d68283ae6f31ef90baf146a470e51c3c1f222e7b59a4d8f99ccd"
+    },
+    {
+      "path": "build/verification/monitor-inline-generated/src/js/wasm/wasmJsMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiWasmJsActuals.kt",
+      "sha256": "cbfef1046f13ddff9dbf85c2bf561e82a7e7d57fe4145542f8f1747814820c0f"
+    },
+    {
+      "path": "build/verification/monitor-inline-generated/src/js/wasm/wasmWasiMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiWasmWasiActuals.kt",
+      "sha256": "743bdc4d4fd690f40903ac3907343533518cfab2176c3db8f9fef6dffda22cda"
+    },
+    {
+      "path": "build/verification/monitor-inline-generated/src/jvm/jvmMain/c/crossbeam_utils_sync_monitor_ffi_jni.c",
+      "sha256": "f0ac63c60abd045926e62ba5425577b2c4f1309d9ffcc64332f2bcf7c850fee3"
+    },
+    {
+      "path": "build/verification/monitor-inline-generated/src/jvm/jvmMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiJvmActuals.kt",
+      "sha256": "dc1b9a311a2ca30adff706ad7791a460c546e5cd430a1baeaa7a454ba27cf3cd"
+    },
+    {
+      "path": "build/verification/monitor-inline-generated/src/native/interop/cinterop/UtilsSyncMonitorFfi.def",
+      "sha256": "ae1d07a27259f2122b1b8395994674d57e7e289dfaa1ac605a5a727400da7cbf"
+    },
+    {
+      "path": "build/verification/monitor-inline-generated/src/native/interop/cinterop/utils_sync_monitor_ffi_wrapper.c",
+      "sha256": "51e43150cf6eabf22093aca660f60500d9192300b732419bbd1da3eb72c4f57b"
+    },
+    {
+      "path": "build/verification/monitor-inline-generated/src/native/interop/cinterop/utils_sync_monitor_ffi_wrapper.h",
+      "sha256": "894027b612c2e3fa09daff9f9b273bce4748b06ffc0a81869255f97f41dc7bd1"
+    },
+    {
+      "path": "build/verification/monitor-inline-generated/src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiNativeActuals.kt",
+      "sha256": "a1cdfee73ab348abd1685156748dcbf18dd8e49b358de22102e45445fb215632"
+    }
+  ],
+  "repairs": [
+    "Preserve generator-emitted private OS monitor ABI, adopt correct project/cinterop include paths.",
+    "Use existing packaged JNI loader and platform-specific N-API resolver with generated symbol checks.",
+    "Implement browser/Wasm companion actuals as explicitly realm-local no-thread monitor resource handles.",
+    "Format Kotlin consistently; no rule suppression or disabled targets."
+  ],
+  "validation": {
+    "focused_log": "build/reports/crossbeam-port/wait-group-integration.log",
+    "focused_tasks": 108,
+    "native_original_waitgroup_tests": 2,
+    "static_review": "no actionable issue; review only, no runtime claim",
+    "all_enabled_log": "build/reports/crossbeam-port/wait-group-all-enabled.log",
+    "all_enabled_tasks_before_stop": 294,
+    "blocker": "CoreSimulator device set unavailable; CoreSimulatorService connection invalid/refused and simdiskimaged unavailable",
+    "all_detekt": {
+      "status": "92 tasks exit success, analysis accuracy limited",
+      "log": "build/reports/crossbeam-port/wait-group-all-detekt.log",
+      "diagnostic_log": "build/reports/crossbeam-port/wait-group-detekt-debug.log",
+      "limitation": "66 expect/actual module mapping compiler-analysis errors in typed JVM/Android analysis; standard Kotlin compile passed; common-source diagnostic did not repair mapping; no permanent workaround"
+    }
+  },
+  "current_receipt": "verification/crossbeam-port/regeneration/redo-adoption.json"
+}

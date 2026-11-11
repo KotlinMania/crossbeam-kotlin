@@ -1,0 +1,5 @@
+package = io.github.kotlinmania.crossbeam.utils.sync.monitor.ffi.cinterop
+headers = utils_sync_monitor_ffi_wrapper.h
+headerFilter = utils_sync_monitor_ffi_wrapper.h
+compilerOpts = -Isrc/native/interop/cinterop
+staticLibraries = utils_sync_monitor_ffi_wrapper.a

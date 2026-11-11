@@ -1,0 +1,284 @@
+{
+  "schema_version": 1,
+  "kind": "project_owned_platform_binding_generation",
+  "generated_at_utc": "2026-11-11T02:53:41.959535+00:00",
+  "upstream_source_claim": false,
+  "translator_path": "../rust-kotlin/build/bin/macosArm64/releaseExecutable/rust-kotlin.kexe",
+  "translator_version": "rust-kotlin 0.1.0 (proc-macro2-kotlin 0.1.8, syn-kotlin 0.5.0)",
+  "translator_sha256": "d6b02d710963654105f075f0e8266cfaa650887ab2920ec2559e9daca6d9762e",
+  "executed_command": [
+    "../rust-kotlin/build/bin/macosArm64/releaseExecutable/rust-kotlin.kexe",
+    "translate",
+    "--force",
+    "--raw-abi",
+    "--port-lint",
+    "none",
+    "--package",
+    "io.github.kotlinmania.crossbeam.utils.platform.ffi",
+    "--namespace",
+    "io.github.kotlinmania.crossbeam",
+    "--target-arch",
+    "aarch64",
+    "--target-os",
+    "macos",
+    "--target-family",
+    "unix",
+    "--target-vendor",
+    "apple",
+    "build/verification/platform-bridge-input/platform_inline.rs",
+    "build/verification/platform-inline-generated/src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/Platform.kt"
+  ],
+  "regeneration_command": [
+    "../rust-kotlin/build/bin/macosArm64/releaseExecutable/rust-kotlin.kexe",
+    "translate",
+    "--force",
+    "--raw-abi",
+    "--port-lint",
+    "none",
+    "--package",
+    "io.github.kotlinmania.crossbeam.utils.platform.ffi",
+    "--namespace",
+    "io.github.kotlinmania.crossbeam",
+    "--target-arch",
+    "aarch64",
+    "--target-os",
+    "macos",
+    "--target-family",
+    "unix",
+    "--target-vendor",
+    "apple",
+    "src/native/interop/rust/platform_inline.rs",
+    "build/verification/platform-inline-generated/src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/Platform.kt"
+  ],
+  "input_path": "src/native/interop/rust/platform_inline.rs",
+  "input_sha256": "a6eca8c3ea77d550669eee447128b7b22448bb8bf0f08b1da90c6901241e77a8",
+  "canonical_c_implementation": "src/native/interop/cinterop/crossbeam_platform.h",
+  "outputs": [
+    {
+      "generated_path": "build/verification/platform-inline-generated/src/android/jvm/androidMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiAndroidActuals.kt",
+      "generated_sha256": "bcf7b6e8fe2bc8ec756a162a0d98f731c695dc0015d3b483e7beed5dd6eb91b5",
+      "adopted_path": "src/android/jvm/androidMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiAndroidActuals.kt",
+      "adopted_sha256": "0c53ffc950774af65ab7af0c6cba8f148326c08e508c5d9ead5c217573bd14ed",
+      "byte_identical": false,
+      "integration_repairs": [
+        "Reconciled generated library name crossbeam_jni to configured ffi_jni."
+      ]
+    },
+    {
+      "generated_path": "build/verification/platform-inline-generated/src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/Platform.kt",
+      "generated_sha256": "dad6a0606b49bbb6ad5fb2c314197387caeade8d4c478e926fdd162cf2a7ea57",
+      "adopted_path": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/Platform.kt",
+      "adopted_sha256": "d83479cf1575a710be2d0b01d3b6b2c4af7adfd261a3f27cecc7512f4d040f62",
+      "byte_identical": false,
+      "integration_repairs": [
+        "Applied repository ktlint formatting after integration; behavior unchanged."
+      ]
+    },
+    {
+      "generated_path": "build/verification/platform-inline-generated/src/js/jsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiJsActuals.kt",
+      "generated_sha256": "34abc5d858ce61b63c5250d3ef86b9c33d25829b1c4fe4af52ecf43a28f9876d",
+      "adopted_path": "src/js/jsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiJsActuals.kt",
+      "adopted_sha256": "0cfbe921d0f799bab199d2fdacfeb0ddc21656176ddfb7ba7b7684198b6c61a0",
+      "byte_identical": false,
+      "integration_repairs": [
+        "Added project-input provenance comment; loader resolves configured @kotlinmania/ffi-native-bindings and dist/index.js only, propagates addon load errors, and validates exported symbols. Generated ABI functions and unsigned conversions retained."
+      ]
+    },
+    {
+      "generated_path": "build/verification/platform-inline-generated/src/js/node-crossbeam/src/crossbeam_utils_platform_ffi_bindings.cpp",
+      "generated_sha256": "f816ca8b6bd5af6cb454a82e9ed34bf8f6a8073396cbe7ed56a05d19f6c0b0f1",
+      "adopted_path": "src/js/node-ffi/src/ffi_bindings.cpp",
+      "adopted_sha256": "f816ca8b6bd5af6cb454a82e9ed34bf8f6a8073396cbe7ed56a05d19f6c0b0f1",
+      "byte_identical": true,
+      "integration_repairs": [
+        "Relocated to configured Ffi addon group; C++ contents unchanged."
+      ]
+    },
+    {
+      "generated_path": "build/verification/platform-inline-generated/src/js/wasm/wasmJsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiWasmJsActuals.kt",
+      "generated_sha256": "caca07af21effa297dd0f394755eecde64728f6a2eff25b2f28811e51abd2adc",
+      "adopted_path": "src/js/wasm/wasmJsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiWasmJsActuals.kt",
+      "adopted_sha256": "8ea166ebb1a39c55a02eda10b1fa16dac510d85a62d58b87a069017a0c56d250",
+      "byte_identical": false,
+      "integration_repairs": [
+        "Added project-input provenance comment; loader resolves configured @kotlinmania/ffi-native-bindings and dist/index.js only, propagates addon load errors, and validates exported symbols. Generated ABI functions and unsigned conversions retained."
+      ]
+    },
+    {
+      "generated_path": "build/verification/platform-inline-generated/src/js/wasm/wasmWasiMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiWasmWasiActuals.kt",
+      "generated_sha256": "1e1734a5a107ac749ab1f37ae0bfc159f3e2e4a7f9c3e40cfb94285191939d0e",
+      "adopted_path": "src/js/wasm/wasmWasiMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiWasmWasiActuals.kt",
+      "adopted_sha256": "b5b646c4ed0cd07b944f112fee18a32b33616d69b514e9c27f58fe32c13afc18",
+      "byte_identical": false,
+      "integration_repairs": [
+        "Replaced unsupported FFI exceptions with explicit single-thread realm identity, Rust Wasm spin-loop no-op, and real WASI preview1 sched_yield import."
+      ]
+    },
+    {
+      "generated_path": "build/verification/platform-inline-generated/src/jvm/jvmMain/c/crossbeam_utils_platform_ffi_jni.c",
+      "generated_sha256": "86ebc22b1a48fcaea01f5ddd3908adc5365aab15001083b040ea595c0eaddbfe",
+      "adopted_path": "src/jvm/jvmMain/c/crossbeam_utils_platform_ffi_jni.c",
+      "adopted_sha256": "3821c8ce8755cf552a88714af530078535bc9ef4ae6ac478b9b0043ae9edb428",
+      "byte_identical": false,
+      "integration_repairs": [
+        "Changed canonical C header include to its source-relative path for JVM and Android JNI compilers."
+      ]
+    },
+    {
+      "generated_path": "build/verification/platform-inline-generated/src/jvm/jvmMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiJvmActuals.kt",
+      "generated_sha256": "bcf7b6e8fe2bc8ec756a162a0d98f731c695dc0015d3b483e7beed5dd6eb91b5",
+      "adopted_path": "src/jvm/jvmMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiJvmActuals.kt",
+      "adopted_sha256": "91fdcc050f39e26c8b42242f2a64561e1d1e14cb25c7d741d07bb98c97de6810",
+      "byte_identical": false,
+      "integration_repairs": [
+        "Replaced generated System.loadLibrary(\"crossbeam_jni\") with FfiNativeLibrary.load() to load configured ffi_jni, including packaged resource extraction.",
+        "Applied repository ktlint formatting after integration; behavior unchanged."
+      ]
+    },
+    {
+      "generated_path": "build/verification/platform-inline-generated/src/native/interop/cinterop/UtilsPlatformFfi.def",
+      "generated_sha256": "e9b20cc055c93d34962104fe612e5fc04d0f060b13dce7cad917f0ed5dc5699c",
+      "adopted_path": "src/native/interop/cinterop/UtilsPlatformFfi.def",
+      "adopted_sha256": "e9b20cc055c93d34962104fe612e5fc04d0f060b13dce7cad917f0ed5dc5699c",
+      "byte_identical": true,
+      "integration_repairs": []
+    },
+    {
+      "generated_path": "build/verification/platform-inline-generated/src/native/interop/cinterop/utils_platform_ffi_wrapper.c",
+      "generated_sha256": "f4ca05807db53f4eae9b1e985e7416ec5640b9fb308c371c7b395db8b449da9e",
+      "adopted_path": "src/native/interop/cinterop/utils_platform_ffi_wrapper.c",
+      "adopted_sha256": "f4ca05807db53f4eae9b1e985e7416ec5640b9fb308c371c7b395db8b449da9e",
+      "byte_identical": true,
+      "integration_repairs": []
+    },
+    {
+      "generated_path": "build/verification/platform-inline-generated/src/native/interop/cinterop/utils_platform_ffi_wrapper.h",
+      "generated_sha256": "e1d925a08f8a782c1a3ea37cb2d9291d8efdb717134f7868ef7726df55a94c3c",
+      "adopted_path": "src/native/interop/cinterop/utils_platform_ffi_wrapper.h",
+      "adopted_sha256": "e1d925a08f8a782c1a3ea37cb2d9291d8efdb717134f7868ef7726df55a94c3c",
+      "byte_identical": true,
+      "integration_repairs": []
+    },
+    {
+      "generated_path": "build/verification/platform-inline-generated/src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiNativeActuals.kt",
+      "generated_sha256": "24e08d0430af7cd2f5c2d02054a2a257eca984229894ea0eaca6267f343039cb",
+      "adopted_path": "src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiNativeActuals.kt",
+      "adopted_sha256": "24e08d0430af7cd2f5c2d02054a2a257eca984229894ea0eaca6267f343039cb",
+      "byte_identical": true,
+      "integration_repairs": []
+    }
+  ],
+  "validation": {
+    "native_wrapper_clang_c11_warnings_as_errors": "passed",
+    "jni_clang_c11_warnings_as_errors": "passed",
+    "legacy_c_header_cpp17_warnings_as_errors": "passed",
+    "packaged_jvm_loader_kotlin_2_4_21_warnings_as_errors": "passed",
+    "full_project_gates": "Full aggregate running separately; not implied by focused checks or generated companion presence.",
+    "central_original_upstream_derived_suites": {
+      "macosArm64": 79,
+      "jvm": 58,
+      "packagedJni": 58,
+      "jsNode": 58,
+      "wasmJsNode": 58,
+      "wasmWasiNode": 58,
+      "jsBrowser": 58,
+      "wasmJsBrowser": 58
+    },
+    "ktlint_format_and_check": "passed in coordinated parent build"
+  },
+  "actual_coverage": {
+    "meaning": "Declaration coverage only; not a claim that foreign runtime tests passed or that a native ABI is available in browsers.",
+    "expect_count": 6,
+    "source_set_count": 6,
+    "declarations": {
+      "currentThreadId": {
+        "common_declaration": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatform.kt",
+        "actuals": {
+          "nativeMain": "src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformNative.kt",
+          "jvmMain": "src/jvm/jvmMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformJvm.kt",
+          "androidMain": "src/android/jvm/androidMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformJvm.kt",
+          "jsMain": "src/js/jsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformJs.kt",
+          "wasmJsMain": "src/js/wasm/wasmJsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformWasmJs.kt",
+          "wasmWasiMain": "src/js/wasm/wasmWasiMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformSingleThread.kt"
+        }
+      },
+      "spinLoop": {
+        "common_declaration": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatform.kt",
+        "actuals": {
+          "nativeMain": "src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformNative.kt",
+          "jvmMain": "src/jvm/jvmMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformJvm.kt",
+          "androidMain": "src/android/jvm/androidMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformJvm.kt",
+          "jsMain": "src/js/jsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformJs.kt",
+          "wasmJsMain": "src/js/wasm/wasmJsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformWasmJs.kt",
+          "wasmWasiMain": "src/js/wasm/wasmWasiMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformSingleThread.kt"
+        }
+      },
+      "yieldThread": {
+        "common_declaration": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatform.kt",
+        "actuals": {
+          "nativeMain": "src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformNative.kt",
+          "jvmMain": "src/jvm/jvmMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformJvm.kt",
+          "androidMain": "src/android/jvm/androidMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformJvm.kt",
+          "jsMain": "src/js/jsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformJs.kt",
+          "wasmJsMain": "src/js/wasm/wasmJsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformWasmJs.kt",
+          "wasmWasiMain": "src/js/wasm/wasmWasiMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ThreadPlatformSingleThread.kt"
+        }
+      },
+      "crossbeam_thread_idC": {
+        "common_declaration": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/Platform.kt",
+        "actuals": {
+          "nativeMain": "src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiNativeActuals.kt",
+          "jvmMain": "src/jvm/jvmMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiJvmActuals.kt",
+          "androidMain": "src/android/jvm/androidMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiAndroidActuals.kt",
+          "jsMain": "src/js/jsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiJsActuals.kt",
+          "wasmJsMain": "src/js/wasm/wasmJsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiWasmJsActuals.kt",
+          "wasmWasiMain": "src/js/wasm/wasmWasiMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiWasmWasiActuals.kt"
+        }
+      },
+      "crossbeam_spin_loopC1": {
+        "common_declaration": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/Platform.kt",
+        "actuals": {
+          "nativeMain": "src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiNativeActuals.kt",
+          "jvmMain": "src/jvm/jvmMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiJvmActuals.kt",
+          "androidMain": "src/android/jvm/androidMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiAndroidActuals.kt",
+          "jsMain": "src/js/jsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiJsActuals.kt",
+          "wasmJsMain": "src/js/wasm/wasmJsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiWasmJsActuals.kt",
+          "wasmWasiMain": "src/js/wasm/wasmWasiMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiWasmWasiActuals.kt"
+        }
+      },
+      "crossbeam_yield_threadC2": {
+        "common_declaration": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/Platform.kt",
+        "actuals": {
+          "nativeMain": "src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiNativeActuals.kt",
+          "jvmMain": "src/jvm/jvmMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiJvmActuals.kt",
+          "androidMain": "src/android/jvm/androidMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiAndroidActuals.kt",
+          "jsMain": "src/js/jsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiJsActuals.kt",
+          "wasmJsMain": "src/js/wasm/wasmJsMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiWasmJsActuals.kt",
+          "wasmWasiMain": "src/js/wasm/wasmWasiMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiWasmWasiActuals.kt"
+        }
+      }
+    },
+    "native_targets_covered_by_nativeMain": [
+      "linuxX64",
+      "linuxArm64",
+      "mingwX64",
+      "androidNativeArm64",
+      "androidNativeX64",
+      "iosArm64",
+      "iosSimulatorArm64",
+      "macosArm64",
+      "tvosArm64",
+      "tvosSimulatorArm64",
+      "watchosDeviceArm64",
+      "watchosSimulatorArm64"
+    ],
+    "runtime_backends": {
+      "nativeMain": "Generated C/cinterop calls canonical OS primitives.",
+      "jvmMain": "Generated JNI, with installed-library or packaged-resource loader.",
+      "androidMain": "Generated JNI through packaged Android ABI library.",
+      "jsMain": "Node uses generated N-API. Browser high-level adapter follows Rust unsupported-thread single-agent behavior; direct native FFI calls remain unsupported.",
+      "wasmJsMain": "Node uses generated N-API. Browser high-level adapter follows Rust unsupported-thread single-agent behavior; direct native FFI calls remain unsupported.",
+      "wasmWasiMain": "Single-agent thread identity; Rust Wasm CPU-hint no-op; real WASI preview1 sched_yield import."
+    }
+  }
+}

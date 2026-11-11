@@ -1,0 +1,147 @@
+--- build/verification/regenerated-kexe/epoch/src/deferred.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Deferred.kt
+@@ -1,134 +1,15 @@
+ // port-lint: source crossbeam-epoch/src/deferred.rs
+-package io.github.kotlinmania.crossbeam.epoch.deferred
++package io.github.kotlinmania.crossbeam.epoch
+ 
+-import io.github.kotlinmania.crossbeam.COpaquePointer
++/** A deferred, one-shot function. Captured resources are released immediately after invocation. */
++internal class Deferred(
++    action: () -> Unit,
++) {
++    private var action: (() -> Unit)? = action
+ 
+-public fun interface DeferredCallCallback {
+-    public operator fun invoke(arg0: COpaquePointer?)
+-}
+-
+-/**
+- * Number of words a piece of `Data` can hold.
+- *
+- * Three words should be enough for the majority of cases. For example, you can fit inside it the
+- * function pointer together with a fat pointer representing an object that needs to be destroyed.
+- */
+-public val DATA_WORDS: Int = 3
+-
+-/**
+- * Some space to keep a `FnOnce()` object on the stack.
+- */
+-public typealias Data = IntArray
+-
+-/**
+- * A `FnOnce()` that is stored inline if small, or otherwise boxed on the heap.
+- *
+- * This is a handy way of keeping an unsized `FnOnce()` within a sized structure.
+- */
+-internal data class Deferred(
+-    public var call: DeferredCallCallback = DeferredCallCallback { _ -> },
+-    public var data: Data? = null,
+-    public var marker: Unit = Unit,
+-) {
+-    override fun equals(other: Any?): Boolean {
+-        if (this === other) return true
+-        if (other !is Deferred) return false
+-        if (this.call != other.call) return false
+-        if (!this.data.contentEquals(other.data)) return false
+-        if (this.marker != other.marker) return false
+-        return true
+-    }
+-
+-    override fun hashCode(): Int {
+-        var result = this.call.hashCode()
+-        result = 31 * result + this.data.contentHashCode()
+-        result = 31 * result + this.marker.hashCode()
+-        return result
+-    }
+-
+-    public fun fmt(f: StringBuilder): Result<Unit> {
+-        return f.append("Deferred { .. }")
+-    }
+-
+-    public companion object {
+-        internal val NO_OP: Deferred = run {
+-            fun noOpCall(raw: COpaquePointer?) {}
+-            Deferred(call = noOpCall, data = null, marker = Unit)
+-        }
+-
+-        /**
+-         * Constructs a new `Deferred` from a `FnOnce()`.
+-         */
+-        internal fun new(f: () -> Unit): Deferred {
+-            val size = 8
+-            val align = 8
+-            return if (size <= 8 && align <= 8) {
+-                fun call(raw: COpaquePointer?) {
+-                    val f1: () -> Unit = ((raw as Any?) as () -> Unit?)
+-                    f1()
+-                }
+-                var data = null
+-                ptr.write(((data as Any?) as () -> Unit?), f)
+-                Deferred(call = call<() -> Unit>, data = data, marker = Unit)
+-            } else {
+-                fun call(raw: COpaquePointer?) {
+-                    // It's safe to cast `raw` from `* UByte` to `* Holder<F>`, because `raw` is
+-                    // originally derived from `* Holder<F>`.
+-                    val b: () -> Unit = ((raw as Any?) as () -> Unit?)
+-                    b()
+-                }
+-                val b: () -> Unit = f
+-                var data1 = null
+-                ptr.write(((data1 as Any?) as () -> Unit?), b)
+-                Deferred(call = call<() -> Unit>, data = data1, marker = Unit)
+-            }
+-        }
++    fun call() {
++        val current = action ?: return
++        action = null
++        current()
+     }
+ }
+-
+-@Test
+-public fun onStack() {
+-    val fired = Cell.new(false)
+-    val a = List(1) { 0u }
+-    val d = Deferred.new({
+-        identity(a)
+-        fired.set(true)
+-    })
+-    check(!fired.get())
+-    d.call()
+-    check(fired.get())
+-}
+-
+-@Test
+-public fun onHeap() {
+-    val fired = Cell.new(false)
+-    val a = List(10) { 0u }
+-    val d = Deferred.new({
+-        identity(a)
+-        fired.set(true)
+-    })
+-    check(!fired.get())
+-    d.call()
+-    check(fired.get())
+-}
+-
+-@Test
+-public fun string() {
+-    val a = "hello".toString()
+-    val d = Deferred.new({ check(a == "hello") })
+-    d.call()
+-}
+-
+-@Test
+-public fun boxedSliceI32() {
+-    val a: List<Int> = mutableListOf(2, 3, 5, 7).intoBoxedSlice()
+-    val d = Deferred.new({ check(a == listOf(2, 3, 5, 7)) })
+-    d.call()
+-}
+-
+-@Test
+-public fun longSliceUsize() {
+-    val a: IntArray = intArrayOf(2, 3, 5, 7, 11)
+-    val d = Deferred.new({ check(a == listOf(2, 3, 5, 7, 11)) })
+-    d.call()
+-}

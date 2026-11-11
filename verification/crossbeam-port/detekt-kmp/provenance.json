@@ -1,0 +1,12 @@
+{
+  "upstream": "https://github.com/detekt/detekt",
+  "commit": "401c64bf232db0dcb054a7cfd0ca5fed3a095bc6",
+  "version": "2.0.0-alpha.6",
+  "source": "detekt-core/src/main/kotlin/dev/detekt/core/settings/EnvironmentAware.kt",
+  "source_sha256": "b1b8d1fb32f1e26665ba67700e70e32369d29b7cccb126f7a9fb9312dcae05bc",
+  "core_jar_sha256": "8af995b6a4e164827eb227660d8d9486b596d6bd5d708bb30cb8d6f5ab5bb697",
+  "license": "Apache-2.0",
+  "change": "Retain both source fragments for analysis and construct their depends-on edge; preserve SDK, regular and friend dependencies. No diagnostic suppression.",
+  "patched_source_sha256": "50b2918b9a1822585c803892989d40220bf1d685683d1485dc90a8fef3b5ec66",
+  "negative_diagnostic_proof": "diagnostic-proof.json"
+}

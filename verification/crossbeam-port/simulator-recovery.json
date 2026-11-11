@@ -1,0 +1,25 @@
+{
+  "repair": "none required; simctl service recovered before diagnostics; no reset/restart/security change",
+  "log": "build/reports/crossbeam-port/simulator-recovery.log",
+  "gradle_tasks": 44,
+  "suites": {
+    "iosSimulatorArm64Test": {
+      "tests": 117,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "tvosSimulatorArm64Test": {
+      "tests": 117,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "watchosSimulatorArm64Test": {
+      "tests": 117,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  }
+}

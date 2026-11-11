@@ -1,0 +1,10 @@
+{
+  "name": "@kotlinmania/ffi-native-bindings",
+  "version": "0.1.1",
+  "description": "Crossbeam OS-thread identity, CPU spin hints and scheduler yielding for Kotlin/JS and Kotlin/WasmJS on Node.js",
+  "main": "index.js",
+  "dependencies": {
+    "node-addon-api": "^8.0.0"
+  },
+  "gypfile": false
+}

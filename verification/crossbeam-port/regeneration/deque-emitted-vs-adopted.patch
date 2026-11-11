@@ -1,0 +1,3233 @@
+--- build/verification/regenerated-kexe/deque/src/deque.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Injector.kt + src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Steal.kt + src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Worker.kt + src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Stealer.kt
+@@ -1,167 +1,934 @@
+ // port-lint: source crossbeam-deque/src/deque.rs
+-package io.github.kotlinmania.crossbeam.deque.deque
+-
+-import io.github.kotlinmania.crossbeamepoch.Atomic
+-import io.github.kotlinmania.crossbeamepoch.Owned
+-import io.github.kotlinmania.crossbeamutils.Backoff
+-import io.github.kotlinmania.crossbeamutils.CachePadded
+-
+-public typealias AtomicIndex = atomic.AtomicUsize
+-
+-public typealias AtomicWorkerIndex = atomic.AtomicIsize
+-
+-public typealias Index = Int
+-
+-public typealias WorkerIndex = Int
+-
+-// Minimum buffer capacity.
+-public val MIN_CAP: Int = 64
+-
+-// Maximum number of tasks that can be stolen in `stealBatch()` and `stealBatchAndPop()`.
+-public val MAX_BATCH: Int = 32
+-
+-// If a buffer of at least this size is retired, thread-local garbage is flushed so that it gets
+-// deallocated as soon as possible.
+-public val FLUSH_THRESHOLD_BYTES: Int = 1 shl 10
++// Based on rust-kotlin's complete Deque.kt candidate from Crossbeam
++// 2920c984290229ab4e0ca0452ef09e48a82063f3, with atomic and ownership repairs.
++@file:OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
++
++package io.github.kotlinmania.crossbeam.deque
++
++import io.github.kotlinmania.crossbeam.utils.backoff.Backoff
++import kotlin.concurrent.atomics.AtomicInt
++import kotlin.concurrent.atomics.AtomicLong
++import kotlin.concurrent.atomics.AtomicReference
++
++// All atomic operations are sequentially consistent, stronger than the upstream acquire/release
++// and relaxed orders. Object references replace raw pointers. Cache-line alignment and explicit
++// allocator layout are not expressible in common Kotlin; neither changes the index/slot protocol.
++
++// Bits indicating the state of a slot:
++// * If a task has been written into the slot, WRITE is set.
++// * If a task has been read from the slot, READ is set.
++// * If the block is being destroyed, DESTROY is set.
++private const val WRITE = 1
++private const val READ = 2
++private const val DESTROY = 4
++
++// Each block covers one "lap" of indices.
++private const val LAP = 64L
++
++// The maximum number of values a block can hold.
++private const val BLOCK_CAP = 63
++
++// How many lower bits are reserved for metadata.
++private const val SHIFT = 1
++
++// Indicates that the block is not the last one.
++private const val HAS_NEXT = 1L
++
++private fun AtomicInt.fetchOr(mask: Int): Int {
++    var old = load()
++    while (true) {
++        val observed = compareAndExchange(old, old or mask)
++        if (observed == old) return old
++        old = observed
++    }
++}
++
++/** A slot in a block. */
++private class Slot<T : Any> {
++    // The non-null task, or null while its slot is uninitialized or consumed.
++    val task = AtomicReference<Entry<T>?>(null)
++
++    // The state of the slot.
++    val state = AtomicInt(0)
++
++    /** Waits until a task is written into the slot. */
++    fun waitWrite() {
++        val backoff = Backoff()
++        while (state.load() and WRITE == 0) backoff.snooze()
++    }
++
++    // Called only by the thread that successfully claimed this slot through the head CAS.
++    // Clearing the reference is Kotlin's ownership transfer, avoiding retention until block GC.
++    fun takeEntry(): Entry<T> = checkNotNull(task.exchange(null))
++}
++
++/** A block in a linked list. Each block holds up to BLOCK_CAP values. */
++private class Block<T : Any> {
++    // The next block in the linked list.
++    val next = AtomicReference<Block<T>?>(null)
++
++    // Slots for values. Kotlin construction replaces Rust's zeroed raw allocation and Layout.
++    val slots = Array(BLOCK_CAP) { Slot<T>() }
++
++    /** Waits until the next pointer is set. */
++    fun waitNext(): Block<T> {
++        val backoff = Backoff()
++        while (true) {
++            val next = next.load()
++            if (next != null) return next
++            backoff.snooze()
++        }
++    }
++
++    companion object {
++        /** Sets DESTROY in slots preceding count and hands reclamation to their readers. */
++        fun <T : Any> destroy(block: Block<T>, count: Int) {
++            // The last slot has already begun destruction, so its DESTROY bit is unnecessary.
++            for (i in count - 1 downTo 0) {
++                val slot = block.slots[i]
++                // Mark DESTROY if a thread is still using the slot. That reader continues
++                // destruction after it has finished reading its claimed range.
++                if (slot.state.load() and READ == 0 && slot.state.fetchOr(DESTROY) and READ == 0) {
++                    return
++                }
++            }
++            // No thread is using the block. Rust frees its allocation here; Kotlin GC reclaims
++            // it after the last reference disappears. Do not sever next: stale readers may use it.
++        }
++    }
++}
++
++/** A position in a queue: an index and its block in the linked list. */
++private class Position<T : Any>(
++    initialBlock: Block<T>,
++) {
++    val index = AtomicLong(0L)
++    val block = AtomicReference(initialBlock)
++}
+ 
+ /**
+- * A buffer that holds tasks in a worker queue.
+- *
+- * This is just a pointer to the buffer and its length - dropping an instance of this struct will
+- * *not* deallocate the buffer.
++ * An injector queue of non-null tasks.
++ *
++ * Represent an option-valued task with a non-null tagged value, preserving the distinction
++ * between a missing task and a task carrying absence when extracting steal results.
++ *
++ * This is a FIFO queue that can be shared among multiple threads. Task schedulers typically have
++ * a single injector queue, which is the entry point for new tasks.
++ *
++ * # Examples
++ *
++ * ```kotlin
++ * import io.github.kotlinmania.crossbeam.deque.Injector
++ * import io.github.kotlinmania.crossbeam.deque.Steal
++ *
++ * val q = Injector<Int>()
++ * q.push(1)
++ * q.push(2)
++ * check(q.steal() == Steal.Success(1))
++ * check(q.steal() == Steal.Success(2))
++ * check(q.steal() == Steal.Empty)
++ * ```
+  */
+-public class Buffer<T>(
+-    /**
+-     * Pointer to the allocated memory.
+-     */
+-    public var ptr: T? = null,
+-    /**
+-     * Capacity of the buffer. Always a power of two.
+-     */
+-    public var cap: Int = 0,
+-) {
+-    /**
+-     * Deallocates the buffer.
+-     */
+-    public fun dealloc() {
+-        drop(Box.fromRaw(ptr.sliceFromRawPartsMut(((this.ptr as Any?) as T?), this.cap)))
+-    }
+-
+-    /**
+-     * Returns a pointer to the task at the specified `index`.
+-     */
+-    public fun at(index: WorkerIndex): T? {
+-        // `self.cap` is always a power of two.
+-        // We do all the loads at `MaybeUninit` because we might realize, after loading, that we
+-        // don't actually have the right to access this memory.
+-        return this.ptr.offset((index and (this.cap - 1)))
+-    }
+-
+-    /**
+-     * Writes `task` into the specified `index`.
+-     *
+-     * This method might be concurrently called with another `read` at the same index, which is
+-     * technically speaking a data race and therefore UB. We should use an atomic store here, but
+-     * that would be more expensive and difficult to implement generically for all types `T`.
+-     * Hence, as a Note, we use a volatile write instead.
+-     */
+-    public fun write(index: WorkerIndex, task: T?) {
+-        ptr.writeVolatile(((this.at(index) as Any?) as T?), task)
+-    }
+-
+-    /**
+-     * Reads a task from the specified `index`.
+-     *
+-     * This method might be concurrently called with another `write` at the same index, which is
+-     * technically speaking a data race and therefore UB. We should use an atomic load here, but
+-     * that would be more expensive and difficult to implement generically for all types `T`.
+-     * Hence, as a Note, we use a volatile load instead.
+-     */
+-    public fun read(index: WorkerIndex): T? {
+-        return ptr.readVolatile(((this.at(index) as Any?) as T?))
+-    }
+-
+-    public fun clone(): Buffer<T> {
+-        return Buffer(this.ptr, this.cap)
+-    }
++public class Injector<T : Any> {
++    // The same initial block belongs to both positions. Do not retain a separate root reference:
++    // old blocks must become collectible after head and tail advance.
++    private val head: Position<T>
++    private val tail: Position<T>
++
++    init {
++        val block = Block<T>()
++        head = Position(block)
++        tail = Position(block)
++    }
++
++    /**
++     * Pushes a task into the queue.
++     *
++     * # Examples
++     *
++     * ```kotlin
++     * import io.github.kotlinmania.crossbeam.deque.Injector
++     *
++     * val w = Injector<Int>()
++     * w.push(1)
++     * w.push(2)
++     * ```
++     */
++    public fun push(task: T) {
++        val backoff = Backoff()
++        var tail = this.tail.index.load()
++        var block = this.tail.block.load()
++        var nextBlock: Block<T>? = null
++        while (true) {
++            // Calculate the offset of the index into the block.
++            val offset = ((tail ushr SHIFT) % LAP).toInt()
++            // If we reached the end of the block, wait until the next one is installed.
++            if (offset == BLOCK_CAP) {
++                backoff.snooze()
++                tail = this.tail.index.load()
++                block = this.tail.block.load()
++                continue
++            }
++            // Allocate the next block in advance to make the wait for other threads as short
++            // as possible. A losing producer's unused allocation is reclaimed by the GC.
++            if (offset + 1 == BLOCK_CAP && nextBlock == null) {
++                nextBlock = Block()
++            }
++            val newTail = tail + (1L shl SHIFT)
++            // Try advancing the tail forward. Kotlin's strong SC CAS also permits the
++            // successful executions of the upstream weak CAS.
++            val observed = this.tail.index.compareAndExchange(tail, newTail)
++            if (observed == tail) {
++                // If we've reached the end of the block, install the next one.
++                if (offset + 1 == BLOCK_CAP) {
++                    val next = checkNotNull(nextBlock)
++                    val nextIndex = newTail + (1L shl SHIFT)
++                    this.tail.block.store(next)
++                    this.tail.index.store(nextIndex)
++                    block.next.store(next)
++                }
++                // Write the task into the slot before publishing WRITE.
++                val slot = block.slots[offset]
++                slot.task.store(Entry(task))
++                slot.state.fetchOr(WRITE)
++                return
++            }
++            tail = observed
++            block = this.tail.block.load()
++            backoff.spin()
++        }
++    }
++
++    /**
++     * Steals a task from the queue.
++     *
++     * # Examples
++     *
++     * ```kotlin
++     * import io.github.kotlinmania.crossbeam.deque.Injector
++     * import io.github.kotlinmania.crossbeam.deque.Steal
++     *
++     * val q = Injector<Int>()
++     * q.push(1)
++     * q.push(2)
++     * check(q.steal() == Steal.Success(1))
++     * check(q.steal() == Steal.Success(2))
++     * check(q.steal() == Steal.Empty)
++     * ```
++     */
++    public fun steal(): Steal<T> {
++        var head: Long
++        var block: Block<T>
++        var offset: Int
++        val backoff = Backoff()
++        while (true) {
++            head = this.head.index.load()
++            block = this.head.block.load()
++            // Calculate the offset of the index into the block.
++            offset = ((head ushr SHIFT) % LAP).toInt()
++            // If we reached the end of the block, wait until the next one is installed.
++            if (offset == BLOCK_CAP) {
++                backoff.snooze()
++            } else {
++                break
++            }
++        }
++        var newHead = head + (1L shl SHIFT)
++        if (newHead and HAS_NEXT == 0L) {
++            // SC atomic loads and CAS provide the upstream sequentially consistent fence.
++            val tail = this.tail.index.load()
++            // If the tail equals the head, that means the queue is empty.
++            if (head ushr SHIFT == tail ushr SHIFT) {
++                return Steal.Empty
++            }
++            // If head and tail are not in the same block, set `HAS_NEXT` in head.
++            if ((head ushr SHIFT) / LAP != (tail ushr SHIFT) / LAP) {
++                newHead = newHead or HAS_NEXT
++            }
++        }
++        // Try moving the head index forward.
++        if (!this.head.index.compareAndSet(head, newHead)) {
++            return Steal.Retry
++        }
++        return run {
++            // If we've reached the end of the block, move to the next one.
++            if (offset + 1 == BLOCK_CAP) {
++                val next = block.waitNext()
++                var nextIndex = (newHead and HAS_NEXT.inv()).plus(1L shl SHIFT)
++                if (next.next.load() != null) {
++                    nextIndex = nextIndex or HAS_NEXT
++                }
++                this.head.block.store(next)
++                this.head.index.store(nextIndex)
++            }
++            // Read the task.
++            val slot = block.slots[offset]
++            slot.waitWrite()
++            val task = slot.takeEntry()
++            // Destroy the block if we've reached the end, or if another thread wanted to destroy
++            // but couldn't because we were busy reading from the slot.
++            if ((offset + 1 == BLOCK_CAP) || (slot.state.fetchOr(READ) and DESTROY != 0)) {
++                Block.destroy(block, offset)
++            }
++            Steal.Success(task.value)
++        }
++    }
++
++    /**
++     * Steals a batch of tasks and pushes them into a worker.
++     *
++     * How many tasks exactly will be stolen is not specified. That said, this method will try to
++     * steal around half of the tasks in the queue, but also not more than some constant limit.
++     *
++     * # Examples
++     *
++     * ```kotlin
++     * import io.github.kotlinmania.crossbeam.deque.Injector
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val q = Injector<Int>()
++     * q.push(1)
++     * q.push(2)
++     * q.push(3)
++     * q.push(4)
++     * val w = Worker.newFifo<Int>()
++     * q.stealBatch(w)
++     * check(w.pop() == 1)
++     * check(w.pop() == 2)
++     * ```
++     */
++    public fun stealBatch(dest: Worker<T>): Steal<Unit> = this.stealBatchWithLimit(dest, MAX_BATCH)
++
++    /**
++     * Steals no more than `limit` of tasks and pushes them into a worker.
++     *
++     * How many tasks exactly will be stolen is not specified. That said, this method will try to
++     * steal around half of the tasks in the queue, but also not more than some constant limit.
++     *
++     * # Examples
++     *
++     * ```kotlin
++     * import io.github.kotlinmania.crossbeam.deque.Injector
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val q = Injector<Int>()
++     * q.push(1)
++     * q.push(2)
++     * q.push(3)
++     * q.push(4)
++     * q.push(5)
++     * q.push(6)
++     * val w = Worker.newFifo<Int>()
++     * q.stealBatchWithLimit(w, 2)
++     * check(w.pop() == 1)
++     * check(w.pop() == 2)
++     * check(w.pop() == null)
++     * q.push(7)
++     * q.push(8)
++     * // Setting a large limit does not guarantee that all elements will be popped. In this case,
++     * // half of the elements are currently popped, but the number of popped elements is considered
++     * // an implementation detail that may be changed in the future.
++     * q.stealBatchWithLimit(w, Int.MAX_VALUE)
++     * check(w.len() == 3)
++     * ```
++     */
++    public fun stealBatchWithLimit(dest: Worker<T>, limit: Int): Steal<Unit> {
++        check(limit > 0)
++        var head: Long
++        var block: Block<T>
++        var offset: Int
++        val backoff = Backoff()
++        while (true) {
++            head = this.head.index.load()
++            block = this.head.block.load()
++            // Calculate the offset of the index into the block.
++            offset = ((head ushr SHIFT) % LAP).toInt()
++            // If we reached the end of the block, wait until the next one is installed.
++            if (offset == BLOCK_CAP) {
++                backoff.snooze()
++            } else {
++                break
++            }
++        }
++        var newHead = head
++        val advance: Int
++        if (newHead and HAS_NEXT == 0L) {
++            // SC atomic loads and CAS provide the upstream sequentially consistent fence.
++            val tail = this.tail.index.load()
++            // If the tail equals the head, that means the queue is empty.
++            if (head ushr SHIFT == tail ushr SHIFT) {
++                return Steal.Empty
++            }
++            // If head and tail are not in the same block, set `HAS_NEXT` in head. Also, calculate
++            // the right batch size to steal.
++            if ((head ushr SHIFT) / LAP != (tail ushr SHIFT) / LAP) {
++                newHead = newHead or HAS_NEXT
++                // We can steal all tasks till the end of the block.
++                advance = (BLOCK_CAP - offset).coerceAtMost(limit)
++            } else {
++                val len = ((tail - head) ushr SHIFT).toInt()
++                // Steal half of the available tasks.
++                advance = ((len + 1) / 2).coerceAtMost(limit)
++            }
++        } else {
++            // We can steal all tasks till the end of the block.
++            advance = (BLOCK_CAP - offset).coerceAtMost(limit)
++        }
++        newHead += advance.toLong() shl SHIFT
++        val newOffset = offset + advance
++        // Try moving the head index forward.
++        if (!this.head.index.compareAndSet(head, newHead)) {
++            return Steal.Retry
++        }
++        // Reserve capacity for the stolen batch.
++        val batchSize = newOffset - offset
++        dest.reserve(batchSize)
++        // Get the destination buffer and back index.
++        val destBuffer = dest.buffer
++        val destB = dest.inner.back.load()
++        return run {
++            // If we've reached the end of the block, move to the next one.
++            if (newOffset == BLOCK_CAP) {
++                val next = block.waitNext()
++                var nextIndex = (newHead and HAS_NEXT.inv()).plus(1L shl SHIFT)
++                if (next.next.load() != null) {
++                    nextIndex = nextIndex or HAS_NEXT
++                }
++                this.head.block.store(next)
++                this.head.index.store(nextIndex)
++            }
++            // Copy values from the injector into the destination queue.
++            when (dest.flavor) {
++                Flavor.Fifo -> {
++                    for (i in 0 until batchSize) {
++                        // Read the task.
++                        val slot = block.slots[offset + i]
++                        slot.waitWrite()
++                        val task = slot.takeEntry()
++                        // Write it into the destination queue.
++                        destBuffer.write(destB.plus(i.toLong()), task)
++                    }
++                }
++                Flavor.Lifo -> {
++                    for (i1 in 0 until batchSize) {
++                        // Read the task.
++                        val slot1 = block.slots[offset + i1]
++                        slot1.waitWrite()
++                        val task1 = slot1.takeEntry()
++                        // Write it into the destination queue.
++                        destBuffer.write(destB.plus((batchSize - 1 - i1).toLong()), task1)
++                    }
++                }
++            }
++            // Kotlin SC stores include the upstream release publication, without a separate
++            // fence or a ThreadSanitizer-specific ordering branch.
++            // Update the back index in the destination queue.
++            dest.inner.back.store(destB.plus(batchSize.toLong()))
++            // Destroy the block if we've reached the end, or if another thread wanted to destroy
++            // but couldn't because we were busy reading from the slot.
++            if (newOffset == BLOCK_CAP) {
++                Block.destroy(block, offset)
++            } else {
++                for (i2 in offset until newOffset) {
++                    val slot2 = block.slots[i2]
++                    if (slot2.state.fetchOr(READ) and DESTROY != 0) {
++                        Block.destroy(block, offset)
++                        break
++                    }
++                }
++            }
++            Steal.Success(Unit)
++        }
++    }
++
++    /**
++     * Steals a batch of tasks, pushes them into a worker, and pops a task from that worker.
++     *
++     * How many tasks exactly will be stolen is not specified. That said, this method will try to
++     * steal around half of the tasks in the queue, but also not more than some constant limit.
++     *
++     * # Examples
++     *
++     * ```kotlin
++     * import io.github.kotlinmania.crossbeam.deque.Injector
++     * import io.github.kotlinmania.crossbeam.deque.Steal
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val q = Injector<Int>()
++     * q.push(1)
++     * q.push(2)
++     * q.push(3)
++     * q.push(4)
++     * val w = Worker.newFifo<Int>()
++     * check(q.stealBatchAndPop(w) == Steal.Success(1))
++     * check(w.pop() == 2)
++     * ```
++     */
++    public fun stealBatchAndPop(dest: Worker<T>): Steal<T> {
++        // Note: we use `MAX_BATCH + 1` as the hard limit for Injector as the performance is slightly
++        // better, but we may change it in the future to be compatible with the same method in Stealer.
++        return this.stealBatchWithLimitAndPop(dest, MAX_BATCH + 1)
++    }
++
++    /**
++     * Steals no more than `limit` of tasks, pushes them into a worker, and pops a task from that worker.
++     *
++     * How many tasks exactly will be stolen is not specified. That said, this method will try to
++     * steal around half of the tasks in the queue, but also not more than the given limit.
++     *
++     * # Examples
++     *
++     * ```kotlin
++     * import io.github.kotlinmania.crossbeam.deque.Injector
++     * import io.github.kotlinmania.crossbeam.deque.Steal
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val q = Injector<Int>()
++     * q.push(1)
++     * q.push(2)
++     * q.push(3)
++     * q.push(4)
++     * q.push(5)
++     * q.push(6)
++     * val w = Worker.newFifo<Int>()
++     * check(q.stealBatchWithLimitAndPop(w, 2) == Steal.Success(1))
++     * check(w.pop() == 2)
++     * check(w.pop() == null)
++     * q.push(7)
++     * // Setting a large limit does not guarantee that all elements will be popped. In this case,
++     * // half of the elements are currently popped, but the number of popped elements is considered
++     * // an implementation detail that may be changed in the future.
++     * check(q.stealBatchWithLimitAndPop(w, Int.MAX_VALUE) == Steal.Success(3))
++     * check(w.pop() == 4)
++     * check(w.pop() == 5)
++     * check(w.pop() == null)
++     * ```
++     */
++    public fun stealBatchWithLimitAndPop(dest: Worker<T>, limit: Int): Steal<T> {
++        check(limit > 0)
++        var head: Long
++        var block: Block<T>
++        var offset: Int
++        val backoff = Backoff()
++        while (true) {
++            head = this.head.index.load()
++            block = this.head.block.load()
++            // Calculate the offset of the index into the block.
++            offset = ((head ushr SHIFT) % LAP).toInt()
++            // If we reached the end of the block, wait until the next one is installed.
++            if (offset == BLOCK_CAP) {
++                backoff.snooze()
++            } else {
++                break
++            }
++        }
++        var newHead = head
++        val advance: Int
++        if (newHead and HAS_NEXT == 0L) {
++            // SC atomic loads and CAS provide the upstream sequentially consistent fence.
++            val tail = this.tail.index.load()
++            // If the tail equals the head, that means the queue is empty.
++            if (head ushr SHIFT == tail ushr SHIFT) {
++                return Steal.Empty
++            }
++            // If head and tail are not in the same block, set `HAS_NEXT` in head.
++            if ((head ushr SHIFT) / LAP != (tail ushr SHIFT) / LAP) {
++                newHead = newHead or HAS_NEXT
++                // We can steal all tasks till the end of the block.
++                advance = (BLOCK_CAP - offset).coerceAtMost(limit)
++            } else {
++                val len = ((tail - head) ushr SHIFT).toInt()
++                // Steal half of the available tasks.
++                advance = ((len + 1) / 2).coerceAtMost(limit)
++            }
++        } else {
++            // We can steal all tasks till the end of the block.
++            advance = (BLOCK_CAP - offset).coerceAtMost(limit)
++        }
++        newHead += advance.toLong() shl SHIFT
++        val newOffset = offset + advance
++        // Try moving the head index forward.
++        if (!this.head.index.compareAndSet(head, newHead)) {
++            return Steal.Retry
++        }
++        // Reserve capacity for the stolen batch.
++        val batchSize = newOffset - offset - 1
++        dest.reserve(batchSize)
++        // Get the destination buffer and back index.
++        val destBuffer = dest.buffer
++        val destB = dest.inner.back.load()
++        return run {
++            // If we've reached the end of the block, move to the next one.
++            if (newOffset == BLOCK_CAP) {
++                val next = block.waitNext()
++                var nextIndex = (newHead and HAS_NEXT.inv()).plus(1L shl SHIFT)
++                if (next.next.load() != null) {
++                    nextIndex = nextIndex or HAS_NEXT
++                }
++                this.head.block.store(next)
++                this.head.index.store(nextIndex)
++            }
++            // Read the task.
++            val slot = block.slots[offset]
++            slot.waitWrite()
++            val task = slot.takeEntry()
++            when (dest.flavor) {
++                Flavor.Fifo -> {
++                    // Copy values from the injector into the destination queue.
++                    for (i in 0 until batchSize) {
++                        // Read the task.
++                        val slot1 = block.slots[offset + i + 1]
++                        slot1.waitWrite()
++                        val task1 = slot1.takeEntry()
++                        // Write it into the destination queue.
++                        destBuffer.write(destB.plus(i.toLong()), task1)
++                    }
++                }
++                Flavor.Lifo -> {
++                    // Copy values from the injector into the destination queue.
++                    for (i1 in 0 until batchSize) {
++                        // Read the task.
++                        val slot2 = block.slots[offset + i1 + 1]
++                        slot2.waitWrite()
++                        val task2 = slot2.takeEntry()
++                        // Write it into the destination queue.
++                        destBuffer.write(destB.plus((batchSize - 1 - i1).toLong()), task2)
++                    }
++                }
++            }
++            // Kotlin SC stores include the upstream release publication, without a separate
++            // fence or a ThreadSanitizer-specific ordering branch.
++            // Update the back index in the destination queue.
++            dest.inner.back.store(destB.plus(batchSize.toLong()))
++            // Destroy the block if we've reached the end, or if another thread wanted to destroy
++            // but couldn't because we were busy reading from the slot.
++            if (newOffset == BLOCK_CAP) {
++                Block.destroy(block, offset)
++            } else {
++                for (i2 in offset until newOffset) {
++                    val slot3 = block.slots[i2]
++                    if (slot3.state.fetchOr(READ) and DESTROY != 0) {
++                        Block.destroy(block, offset)
++                        break
++                    }
++                }
++            }
++            Steal.Success(task.value)
++        }
++    }
++
++    /**
++     * Returns `true` if the queue is empty.
++     *
++     * # Examples
++     *
++     * ```kotlin
++     * import io.github.kotlinmania.crossbeam.deque.Injector
++     *
++     * val q = Injector<Int>()
++     * check(q.isEmpty())
++     * q.push(1)
++     * check(!q.isEmpty())
++     * ```
++     */
++    public fun isEmpty(): Boolean {
++        val head = this.head.index.load()
++        val tail = this.tail.index.load()
++        return head ushr SHIFT == tail ushr SHIFT
++    }
++
++    /**
++     * Returns the number of tasks in the queue.
++     *
++     * # Examples
++     *
++     * ```kotlin
++     * import io.github.kotlinmania.crossbeam.deque.Injector
++     *
++     * val q = Injector<Int>()
++     * check(q.len() == 0)
++     * q.push(1)
++     * check(q.len() == 1)
++     * q.push(1)
++     * check(q.len() == 2)
++     * ```
++     */
++    public fun len(): Int {
++        while (true) {
++            // Load the tail index, then load the head index.
++            var tail = this.tail.index.load()
++            var head = this.head.index.load()
++            // If the tail index didn't change, we've got consistent indices to work with.
++            if (this.tail.index.load() == tail) {
++                // Erase the lower bits.
++                tail = tail and ((1L shl SHIFT) - 1).inv()
++                head = head and ((1L shl SHIFT) - 1).inv()
++                // Fix up indices if they fall onto block ends.
++                if ((tail ushr SHIFT) and (LAP - 1L) == LAP - 1L) {
++                    tail = tail.plus(1L shl SHIFT)
++                }
++                if ((head ushr SHIFT) and (LAP - 1L) == LAP - 1L) {
++                    head = head.plus(1L shl SHIFT)
++                }
++                // Rotate indices so that head falls into the first block.
++                val lap = (head ushr SHIFT) / LAP
++                tail = tail.minus((lap * LAP) shl SHIFT)
++                head = head.minus((lap * LAP) shl SHIFT)
++                // Remove the lower bits.
++                tail = tail ushr SHIFT
++                head = head ushr SHIFT
++                // Return the difference minus the number of blocks between tail and head.
++                return (tail - head - tail / LAP).toInt()
++            }
++        }
++    }
++
++    // Rust Drop explicitly drops the remaining tasks and frees blocks. Kotlin's GC releases
++    // the queue's reachable object graph instead; deterministic user-defined Drop is not portable.
++    override fun toString(): String = "Injector { .. }"
+ 
+     public companion object {
+         /**
+-         * Allocates a new buffer with the specified capacity.
++         * Creates a new injector queue, equivalent to `Injector<T>()`.
++         *
++         * ```kotlin
++         * val q = Injector.new<Int>()
++         * check(q.isEmpty())
++         * ```
+          */
+-        public fun <T> alloc(cap: Int): Buffer<T> {
+-            check(cap == cap.nextPowerOfTwo())
+-            val ptr = ((Box.intoRaw((0 until cap).map({ null }).collect<List<Any?>>()) as Any?) as T?)
+-            return Buffer(ptr = ptr, cap = cap)
+-        }
++        public fun <T : Any> new(): Injector<T> = Injector()
++
++        /** Creates the default, empty injector. */
++        public fun <T : Any> default(): Injector<T> = Injector()
++    }
++}
++// port-lint: source crossbeam-deque/src/deque.rs
++package io.github.kotlinmania.crossbeam.deque
++
++/**
++ * Possible outcomes of a steal operation on non-null tasks. Results can be chained with [orElse], or combined
++ * using [fromIter], which stops at the first success and remembers any retry.
++ *
++ * ```kotlin
++ * check(Steal.fromIter(listOf(Steal.Empty, Steal.Retry, Steal.Empty)) == Steal.Retry)
++ * check(Steal.fromIter(listOf(Steal.Retry, Steal.Success(1), Steal.Empty)) == Steal.Success(1))
++ * val empty: Steal<Int> = Steal.Empty
++ * check(empty.orElse { Steal.Success(1) } == Steal.Success(1))
++ * ```
++ */
++public sealed class Steal<out T : Any> {
++    /** The queue was empty at the time of stealing. */
++    public data object Empty : Steal<Nothing>()
++
++    /** At least one task was successfully stolen. */
++    public data class Success<T : Any>(
++        public val value: T,
++    ) : Steal<T>() {
++        override fun toString(): String = "Success(..)"
++    }
++
++    /** The steal operation needs to be retried. */
++    public data object Retry : Steal<Nothing>()
++
++    /**
++     * Returns true if the queue was empty at the time of stealing.
++     *
++     * ```kotlin
++     * check(!Steal.Success(7).isEmpty())
++     * check(!Steal.Retry.isEmpty())
++     * check(Steal.Empty.isEmpty())
++     * ```
++     */
++    public fun isEmpty(): Boolean = this === Empty
++
++    /**
++     * Returns true if at least one task was stolen.
++     *
++     * ```kotlin
++     * check(!Steal.Empty.isSuccess())
++     * check(!Steal.Retry.isSuccess())
++     * check(Steal.Success(7).isSuccess())
++     * ```
++     */
++    public fun isSuccess(): Boolean = this is Success
++
++    /**
++     * Returns true if the steal operation needs to be retried.
++     *
++     * ```kotlin
++     * check(!Steal.Empty.isRetry())
++     * check(!Steal.Success(7).isRetry())
++     * check(Steal.Retry.isRetry())
++     * ```
++     */
++    public fun isRetry(): Boolean = this === Retry
++
++    /**
++     * Returns the result of the operation, if successful, otherwise null.
++     * Successful task values are non-null, so null always means that no task was stolen.
++     *
++     * ```kotlin
++     * check(Steal.Empty.success() == null)
++     * check(Steal.Retry.success() == null)
++     * check(Steal.Success(7).success() == 7)
++     * ```
++     */
++    public fun success(): T? =
++        when (this) {
++            is Success -> value
++            Empty, Retry -> null
++        }
++
++    /**
++     * If no task was stolen, attempts another steal operation.
++     *
++     * Returns this result if it is [Success]. Otherwise invokes [f]: a second success is
++     * returned, any retry in either unsuccessful result produces [Retry], and two empty
++     * results produce [Empty].
++     *
++     * ```kotlin
++     * val retry: Steal<Int> = Steal.Retry
++     * val empty: Steal<Int> = Steal.Empty
++     * check(Steal.Success(1).orElse { Steal.Success(2) } == Steal.Success(1))
++     * check(retry.orElse { Steal.Success(2) } == Steal.Success(2))
++     * check(retry.orElse { Steal.Empty } == Steal.Retry)
++     * check(empty.orElse { Steal.Retry } == Steal.Retry)
++     * check(empty.orElse { Steal.Empty } == Steal.Empty)
++     * ```
++     */
++    public fun orElse(f: () -> Steal<@UnsafeVariance T>): Steal<T> =
++        when (this) {
++            Empty -> f()
++            is Success -> this
++            Retry ->
++                when (val second = f()) {
++                    is Success -> second
++                    Empty, Retry -> Retry
++                }
++        }
++
++    public companion object {
++        /**
++         * Consumes items until a [Success] is found and returns it.
++         * If none succeeds but at least one retries, returns [Retry]; otherwise returns [Empty].
++         */
++        public fun <T : Any> fromIter(iter: Iterable<Steal<T>>): Steal<T> {
++            var retry = false
++            for (result in iter) {
++                when (result) {
++                    Empty -> Unit
++                    is Success -> return result
++                    Retry -> retry = true
++                }
++            }
++            return if (retry) Retry else Empty
++        }
++    }
++}
++// port-lint: source crossbeam-deque/src/deque.rs
++@file:OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
++
++package io.github.kotlinmania.crossbeam.deque
++
++import kotlin.concurrent.atomics.AtomicLong
++import kotlin.concurrent.atomics.AtomicReference
++
++internal const val MIN_CAP: Int = 64
++internal const val MAX_BATCH: Int = 32
++
++/** A task wrapper gives each published slot its own identity for safe reference release. */
++internal class Entry<T : Any>(
++    val value: T,
++)
++
++/**
++ * A circular buffer that holds tasks in a worker queue. Capacity is always a power of two.
++ *
++ * Kotlin references keep a buffer alive while a stealer is reading it, replacing the Rust
++ * epoch-protected raw allocation. Each slot is atomic rather than Rust's volatile raw load/store.
++ * These operations, and all index operations below, are sequentially consistent, which is
++ * stronger than the upstream acquire/release operations and supplies the required fences.
++ */
++internal class Buffer<T : Any>(
++    val cap: Int,
++) {
++    private val slots = Array(cap) { AtomicReference<Entry<T>?>(null) }
++
++    init {
++        require(cap > 0 && cap and (cap - 1) == 0)
++    }
++
++    private fun at(index: Long): AtomicReference<Entry<T>?> = slots[(index and (cap - 1).toLong()).toInt()]
++
++    // A speculative reader may lose the front-index CAS and must not use the value in that case.
++    fun read(index: Long): Entry<T>? = at(index).load()
++
++    fun write(index: Long, task: Entry<T>?) {
++        at(index).store(task)
++    }
++
++    // Drop only our consumed reference, never a newer task that has wrapped into the same slot.
++    fun release(index: Long, task: Entry<T>?) {
++        at(index).compareAndSet(task, null)
+     }
+ }
+ 
+ /**
+  * Internal queue data shared between the worker and stealers.
+  *
+- * The implementation is based on the following work:
+- *
+- * 1. [Chase and Lev. Dynamic circular work-stealing deque. SPAA 2005.][chase-lev]
+- * 2. [Le, Pop, Cohen, and Nardelli. Correct and efficient work-stealing for weak memory models.
+- *    PPoPP 2013.][weak-mem]
+- * 3. [Norris and Demsky. CDSchecker: checking concurrent data structures written with C/C++
+- *    atomics. OOPSLA 2013.][checker]
+- *
+- * [chase-lev]: https://dl.acm.org/citation.cfm?id=1073974
+- * [weak-mem]: https://dl.acm.org/citation.cfm?id=2442524
+- * [checker]: https://dl.acm.org/citation.cfm?id=2509514
++ * Based on Chase and Lev's dynamic circular work-stealing deque (SPAA 2005), Le, Pop,
++ * Cohen and Nardelli's weak-memory implementation (PPoPP 2013), and Norris and Demsky's
++ * CDSchecker analysis (OOPSLA 2013).
++ *
++ * - [Dynamic circular work-stealing deque](https://dl.acm.org/citation.cfm?id=1073974)
++ * - [Correct and efficient work-stealing for weak memory models](https://dl.acm.org/citation.cfm?id=2442524)
++ * - [CDSchecker](https://dl.acm.org/citation.cfm?id=2509514)
++ *
++ * Kotlin garbage collection replaces the raw buffer/task destruction in Rust's Inner.drop.
++ * Common Kotlin does not guarantee Rust's cache-line alignment; this affects layout, not the
++ * queue's atomic index protocol.
+  */
+-public class Inner<T>(
+-    /**
+-     * The front index.
+-     */
+-    public var front: AtomicWorkerIndex = AtomicWorkerIndex(),
+-    /**
+-     * The back index.
+-     */
+-    public var back: AtomicWorkerIndex = AtomicWorkerIndex(),
+-    /**
+-     * The underlying buffer.
+-     */
+-    public var buffer: CachePadded<Atomic<Buffer<T>>> = CachePadded<Atomic<Buffer<T>>>(),
++internal class Inner<T : Any>(
++    buffer: Buffer<T>,
+ ) {
+-    public fun drop() {
+-        // Load the back index, front index, and buffer.
+-        val b = this.back.getMut()
+-        val f = this.front.getMut()
+-        run {
+-            val buffer = this.buffer.load(Ordering.Relaxed, epoch.unprotected())
+-            // Go through the buffer from front to back and drop all tasks in the queue.
+-            var i = f
+-            while (i != b) {
+-                buffer.deref().at(i).dropInPlace()
+-                i = i.wrappingAdd(1)
+-            }
+-            // Free the memory allocated by the buffer.
+-            buffer.intoOwned().intoBox().dealloc()
+-        }
+-    }
++    /** The front index. */
++    val front = AtomicLong(0L)
++
++    /** The back index. */
++    val back = AtomicLong(0L)
++
++    /** The underlying buffer, shared with stealers. */
++    val buffer = AtomicReference(buffer)
+ }
+ 
++/** Worker queue flavor: first-in first-out or last-in first-out. */
++internal enum class Flavor { Fifo, Lifo }
++
+ /**
+- * Worker queue flavor: FIFO or LIFO.
+- */
+-public enum class Flavor(
+-    public val value: UInt,
+-) {
+-    /**
+-     * The first-in first-out flavor.
+-     */
+-    Fifo(0u),
+-    /**
+-     * The last-in first-out flavor.
+-     */
+-    Lifo(1u),
+-}
+-
+-/**
+- * A worker queue.
++ * A worker queue of non-null tasks.
++ *
++ * [pop] uses null to represent an empty queue. Represent an option-valued task with a
++ * non-null tagged value so that a missing task and a task carrying absence remain distinct.
++ *
++ * Work-stealing schedulers typically give each thread its own [Worker], share one global
++ * [Injector] for incoming tasks, and share [Stealer] handles for other workers. Push new tasks
++ * into the injector. Each idle worker first tries [pop], then [Injector.stealBatchAndPop], then
++ * [Stealer.steal] from its peers. Stealing can spuriously return [Steal.Retry], so retry while
++ * any attempt requests it. Both batch operations also have variants with an explicit limit.
++ *
++ * A scheduler's search can be expressed as follows (non-null task type):
++ *
++ * ```kotlin
++ * fun <T : Any> findTask(local: Worker<T>, global: Injector<T>, stealers: List<Stealer<T>>): T? {
++ *     local.pop()?.let { return it }
++ *     while (true) {
++ *         val result = global.stealBatchAndPop(local).orElse {
++ *             Steal.fromIter(stealers.asSequence().map { it.steal() }.asIterable())
++ *         }
++ *         if (!result.isRetry()) return result.success()
++ *     }
++ * }
++ * ```
+  *
+  * This is a FIFO or LIFO queue that is owned by a single thread, but other threads may steal
+  * tasks from it. Task schedulers typically create a single worker queue per thread.
+@@ -171,10 +938,10 @@
+  * A FIFO worker:
+  *
+  * ```kotlin
+- * import crossbeamdeque.Steal
+- * import crossbeamdeque.Worker
+- *
+- * val w = Worker.newFifo()
++ * import io.github.kotlinmania.crossbeam.deque.Steal
++ * import io.github.kotlinmania.crossbeam.deque.Worker
++ *
++ * val w = Worker.newFifo<Int>()
+  * val s = w.stealer()
+  * w.push(1)
+  * w.push(2)
+@@ -187,10 +954,10 @@
+  * A LIFO worker:
+  *
+  * ```kotlin
+- * import crossbeamdeque.Steal
+- * import crossbeamdeque.Worker
+- *
+- * val w = Worker.newLifo()
++ * import io.github.kotlinmania.crossbeam.deque.Steal
++ * import io.github.kotlinmania.crossbeam.deque.Worker
++ *
++ * val w = Worker.newLifo<Int>()
+  * val s = w.stealer()
+  * w.push(1)
+  * w.push(2)
+@@ -200,266 +967,12 @@
+  * check(w.pop() == 2)
+  * ```
+  */
+-public class Worker<T>(
+-    /**
+-     * A reference to the inner representation of the queue.
+-     */
+-    public var inner: CachePadded<Inner<T>> = CachePadded<Inner<T>>(),
+-    /**
+-     * A copy of `inner.buffer` for quick access.
+-     */
+-    public var buffer: Cell<Buffer<T>> = Cell<Buffer<T>>(),
+-    /**
+-     * The flavor of the queue.
+-     */
+-    public var flavor: Flavor = Flavor(),
+-    /**
+-     * Indicates that the worker cannot be shared among threads.
+-     */
+-    public var marker: Unit = Unit,
++public class Worker<T : Any> private constructor(
++    internal val flavor: Flavor,
+ ) {
+-    /**
+-     * Creates a stealer for this queue.
+-     *
+-     * The returned stealer can be shared among threads and cloned.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.Worker
+-     *
+-     * val w = Worker.newLifo()
+-     * val s = w.stealer()
+-     * ```
+-     */
+-    public fun stealer(): Stealer<T> {
+-        return Stealer(inner = this.inner.clone(), flavor = this.flavor)
+-    }
+-
+-    /**
+-     * Resizes the internal buffer to the new capacity of `newCap`.
+-     */
+-    public fun resize(newCap: Int) {
+-        // Load the back index, front index, and buffer.
+-        val b = this.inner.back.load(Ordering.Relaxed)
+-        val f = this.inner.front.load(Ordering.Relaxed)
+-        val buffer = this.buffer.get()
+-        // Allocate a new buffer and copy data from the old buffer to the new one.
+-        val new = Buffer.alloc(newCap)
+-        var i = f
+-        while (i != b) {
+-            ptr.copyNonoverlapping(buffer.at(i), new.at(i), 1)
+-            i = i.wrappingAdd(1)
+-        }
+-        val guard = epoch.pin()
+-        // Replace the old buffer with the new one.
+-        this.buffer.replace(new)
+-        val old = this.inner.buffer.swap(Owned.new(new).intoShared(guard), Ordering.Release, guard)
+-        // Destroy the old buffer later.
+-        guard.deferUnchecked({ old.intoOwned().intoBox().dealloc() })
+-        // If the buffer is very large, then flush the thread-local garbage in order to deallocate
+-        // it as soon as possible.
+-        if (8 * newCap >= FLUSH_THRESHOLD_BYTES) {
+-            guard.flush()
+-        }
+-    }
+-
+-    /**
+-     * Reserves enough capacity so that `reserveCap` tasks can be pushed without growing the
+-     * buffer.
+-     */
+-    public fun reserve(reserveCap: Int) {
+-        if (reserveCap > 0) {
+-            // Compute the current length.
+-            val b = this.inner.back.load(Ordering.Relaxed)
+-            val f = this.inner.front.load(Ordering.SeqCst)
+-            val len = b.wrappingSub(f).toInt()
+-            // The current capacity.
+-            val cap = this.buffer.get().cap
+-            // Is there enough capacity to push `reserveCap` tasks?
+-            if (cap - len < reserveCap) {
+-                // Ensure capacity for reserveCap + len, rounded up to the next power of 2
+-                val newCap = (reserveCap + len).nextPowerOfTwo()
+-                // Resize the buffer.
+-                run {
+-                    this.resize(newCap)
+-                }
+-            }
+-        }
+-    }
+-
+-    /**
+-     * Returns `true` if the queue is empty.
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.Worker
+-     *
+-     * val w = Worker.newLifo()
+-     * check(w.isEmpty())
+-     * w.push(1)
+-     * check(!w.isEmpty())
+-     * ```
+-     */
+-    public fun isEmpty(): Boolean {
+-        val b = this.inner.back.load(Ordering.Relaxed)
+-        val f = this.inner.front.load(Ordering.SeqCst)
+-        return b.wrappingSub(f) <= 0
+-    }
+-
+-    /**
+-     * Returns the number of tasks in the deque.
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.Worker
+-     *
+-     * val w = Worker.newLifo()
+-     * check(w.len() == 0)
+-     * w.push(1)
+-     * check(w.len() == 1)
+-     * w.push(1)
+-     * check(w.len() == 2)
+-     * ```
+-     */
+-    public fun len(): Int {
+-        val b = this.inner.back.load(Ordering.Relaxed)
+-        val f = this.inner.front.load(Ordering.SeqCst)
+-        return b.wrappingSub(f).max(0).toInt()
+-    }
+-
+-    /**
+-     * Pushes a task into the queue.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.Worker
+-     *
+-     * val w = Worker.newLifo()
+-     * w.push(1)
+-     * w.push(2)
+-     * ```
+-     */
+-    public fun push(task: T) {
+-        // Load the back index, front index, and buffer.
+-        val b = this.inner.back.load(Ordering.Relaxed)
+-        val f = this.inner.front.load(Ordering.Acquire)
+-        var buffer = this.buffer.get()
+-        // Calculate the length of the queue.
+-        val len = b.wrappingSub(f)
+-        // Is the queue full?
+-        if (len >= buffer.cap.toInt()) {
+-            // Yes. Grow the underlying buffer.
+-            run {
+-                this.resize(2 * buffer.cap)
+-            }
+-            buffer = this.buffer.get()
+-        }
+-        // Write `task` into the slot.
+-        run {
+-            buffer.write(b, MaybeUninit.new(task))
+-        }
+-        // ThreadSanitizer does not understand fences, so we omit fence and do store with Release ordering.
+-        atomic.fence(Ordering.Release)
+-        val storeOrder = if (false) {
+-            Ordering.Release
+-        } else {
+-            Ordering.Relaxed
+-        }
+-        // Increment the back index.
+-        this.inner.back.store(b.wrappingAdd(1), storeOrder)
+-    }
+-
+-    /**
+-     * Pops a task from the queue.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.Worker
+-     *
+-     * val w = Worker.newFifo()
+-     * w.push(1)
+-     * w.push(2)
+-     * check(w.pop() == 1)
+-     * check(w.pop() == 2)
+-     * check(w.pop() == null)
+-     * ```
+-     */
+-    public fun pop(): T? {
+-        // Load the back and front index.
+-        val b = this.inner.back.load(Ordering.Relaxed)
+-        val f = this.inner.front.load(Ordering.Relaxed)
+-        // Calculate the length of the queue.
+-        val len = b.wrappingSub(f)
+-        // Is the queue empty?
+-        if (len <= 0) {
+-            return null
+-        }
+-        return when (this.flavor) {
+-            // Pop from the front of the queue.
+-            Flavor.Fifo -> {
+-                // Try incrementing the front index to pop the task.
+-                val f1 = this.inner.front.fetchAdd(1, Ordering.SeqCst)
+-                val newF = f1.wrappingAdd(1)
+-                if (b.wrappingSub(newF) < 0) {
+-                    this.inner.front.store(f1, Ordering.Relaxed)
+-                    return null
+-                }
+-                run {
+-                    // Read the popped task.
+-                    val buffer = this.buffer.get()
+-                    val task = buffer.read(f1).assumeInit()
+-                    // Shrink the buffer if `len - 1` is less than one fourth of the capacity.
+-                    if (buffer.cap > MIN_CAP && len <= buffer.cap.toInt() / 4) {
+-                        this.resize(buffer.cap / 2)
+-                    }
+-                    task
+-                }
+-            }
+-            // Pop from the back of the queue.
+-            Flavor.Lifo -> {
+-                // Decrement the back index.
+-                val b1 = b.wrappingSub(1)
+-                this.inner.back.store(b1, Ordering.Relaxed)
+-                atomic.fence(Ordering.SeqCst)
+-                // Load the front index.
+-                val f2 = this.inner.front.load(Ordering.Relaxed)
+-                // Compute the length after the back index was decremented.
+-                val len1 = b1.wrappingSub(f2)
+-                if (len1 < 0) {
+-                    // The queue is empty. Restore the back index to the original task.
+-                    this.inner.back.store(b1.wrappingAdd(1), Ordering.Relaxed)
+-                    null
+-                } else {
+-                    // Read the task to be popped.
+-                    val buffer1 = this.buffer.get()
+-                    var task1 = buffer1.read(b1)
+-                    // Are we popping the last task from the queue?
+-                    if (len1 == 0) {
+-                        // Try incrementing the front index.
+-                        if (this.inner.front.compareExchange(f2, f2.wrappingAdd(1), Ordering.SeqCst, Ordering.Relaxed).isErr()) {
+-                            // Failed. We didn't pop anything. Reset to `None`.
+-                            task1.also { task1 = null }
+-                        }
+-                        // Restore the back index to the original task.
+-                        this.inner.back.store(b1.wrappingAdd(1), Ordering.Relaxed)
+-                    } else {
+-                        // Shrink the buffer if `len` is less than one fourth of the capacity.
+-                        if (buffer1.cap > MIN_CAP && len1 < buffer1.cap.toInt() / 4) {
+-                            run {
+-                                this.resize(buffer1.cap / 2)
+-                            }
+-                        }
+-                    }
+-                    task1.map({ t -> t.assumeInit() })
+-                }
+-            }
+-        }
+-    }
+-
+-    public fun fmt(f: StringBuilder) {
+-        f.append("Worker { .. }")
+-    }
++    /** A copy of the shared buffer for quick, owner-only access. */
++    internal var buffer: Buffer<T> = Buffer(MIN_CAP)
++    internal val inner: Inner<T> = Inner(buffer)
+ 
+     public companion object {
+         /**
+@@ -470,16 +983,12 @@
+          * # Examples
+          *
+          * ```kotlin
+-         * import crossbeamdeque.Worker
++         * import io.github.kotlinmania.crossbeam.deque.Worker
+          *
+-         * val w = Worker.newFifo()
++         * val w = Worker.newFifo<Int>()
+          * ```
+          */
+-        public fun <T> newFifo(): Worker<T> {
+-            val buffer = Buffer.alloc(MIN_CAP)
+-            val inner = CachePadded.new(Inner(front = AtomicWorkerIndex.new(0), back = AtomicWorkerIndex.new(0), buffer = CachePadded.new(Atomic.new(buffer))))
+-            return Worker(inner = inner, buffer = Cell.new(buffer), flavor = Flavor.Fifo, marker = Unit)
+-        }
++        public fun <T : Any> newFifo(): Worker<T> = Worker(Flavor.Fifo)
+ 
+         /**
+          * Creates a LIFO worker queue.
+@@ -489,21 +998,192 @@
+          * # Examples
+          *
+          * ```kotlin
+-         * import crossbeamdeque.Worker
++         * import io.github.kotlinmania.crossbeam.deque.Worker
+          *
+-         * val w = Worker.newLifo()
++         * val w = Worker.newLifo<Int>()
+          * ```
+          */
+-        public fun <T> newLifo(): Worker<T> {
+-            val buffer = Buffer.alloc(MIN_CAP)
+-            val inner = CachePadded.new(Inner(front = AtomicWorkerIndex.new(0), back = AtomicWorkerIndex.new(0), buffer = CachePadded.new(Atomic.new(buffer))))
+-            return Worker(inner = inner, buffer = Cell.new(buffer), flavor = Flavor.Lifo, marker = Unit)
+-        }
+-    }
++        public fun <T : Any> newLifo(): Worker<T> = Worker(Flavor.Lifo)
++    }
++
++    /**
++     * Creates a stealer for this queue.
++     *
++     * The returned stealer can be shared among threads and cloned.
++     *
++     * # Examples
++     *
++     * ```kotlin
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val w = Worker.newLifo<Int>()
++     * val s = w.stealer()
++     * ```
++     */
++    public fun stealer(): Stealer<T> = Stealer(inner, flavor)
++
++    /** Resizes the internal buffer to [newCap]. Only the owning thread may call this. */
++    internal fun resize(newCap: Int) {
++        val b = inner.back.load()
++        val f = inner.front.load()
++        val old = buffer
++        val new = Buffer<T>(newCap)
++        var i = f
++        while (i != b) {
++            new.write(i, old.read(i))
++            i += 1
++        }
++        buffer = new
++        inner.buffer.store(new)
++        // Readers retain old directly. GC reclaims it when their references disappear, so
++        // defer-unchecked, dealloc and the Rust byte-size flush threshold are unnecessary here.
++    }
++
++    /** Reserves room for [reserveCap] tasks without publishing any of those tasks. */
++    internal fun reserve(reserveCap: Int) {
++        if (reserveCap > 0) {
++            val len = (inner.back.load() - inner.front.load()).toInt()
++            if (buffer.cap - len < reserveCap) {
++                val required = reserveCap.toLong() + len
++                require(required <= (1L shl 30)) { "Worker buffer capacity overflow" }
++                var newCap = 1
++                while (newCap < required) newCap = newCap shl 1
++                resize(newCap)
++            }
++        }
++    }
++
++    /**
++     * Returns `true` if the queue is empty.
++     *
++     * ```kotlin
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val w = Worker.newLifo<Int>()
++     * check(w.isEmpty())
++     * w.push(1)
++     * check(!w.isEmpty())
++     * ```
++     */
++    public fun isEmpty(): Boolean = inner.back.load() - inner.front.load() <= 0
++
++    /**
++     * Returns the number of tasks in the deque.
++     *
++     * ```kotlin
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val w = Worker.newLifo<Int>()
++     * check(w.len() == 0)
++     * w.push(1)
++     * check(w.len() == 1)
++     * w.push(1)
++     * check(w.len() == 2)
++     * ```
++     */
++    public fun len(): Int = (inner.back.load() - inner.front.load()).coerceAtLeast(0).toInt()
++
++    /**
++     * Pushes a task into the queue.
++     *
++     * # Examples
++     *
++     * ```kotlin
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val w = Worker.newLifo<Int>()
++     * w.push(1)
++     * w.push(2)
++     * ```
++     */
++    public fun push(task: T) {
++        val b = inner.back.load()
++        val f = inner.front.load()
++        if (b - f >= buffer.cap) {
++            check(buffer.cap < (1 shl 30)) { "Worker buffer capacity overflow" }
++            resize(2 * buffer.cap)
++        }
++        buffer.write(b, Entry(task))
++        // The SC store publishes the task, including the upstream release fence.
++        inner.back.store(b + 1)
++    }
++
++    /**
++     * Pops a task from the queue.
++     *
++     * Returns null only when no task was popped. Task values are non-null; represent an
++     * option-valued task with a non-null tagged value rather than a nullable task type.
++     *
++     * # Examples
++     *
++     * ```kotlin
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val w = Worker.newFifo<Int>()
++     * w.push(1)
++     * w.push(2)
++     * check(w.pop() == 1)
++     * check(w.pop() == 2)
++     * check(w.pop() == null)
++     * ```
++     */
++    public fun pop(): T? = popEntry()?.value
++
++    // Retain the claimed slot identity for self-stealing operations.
++    internal fun popEntry(): Entry<T>? {
++        val back = inner.back.load()
++        val front = inner.front.load()
++        val length = back - front
++        if (length <= 0) return null
++        return when (flavor) {
++            Flavor.Fifo -> {
++                val f = inner.front.fetchAndAdd(1)
++                if (back - (f + 1) < 0) {
++                    inner.front.store(f)
++                    null
++                } else {
++                    val old = buffer
++                    val task = checkNotNull(old.read(f))
++                    old.release(f, task)
++                    if (old.cap > MIN_CAP && length <= old.cap / 4) resize(old.cap / 2)
++                    task
++                }
++            }
++            Flavor.Lifo -> {
++                val b = back - 1
++                inner.back.store(b)
++                // SC store/load supply the SeqCst fence in the upstream algorithm.
++                val f = inner.front.load()
++                val len = b - f
++                if (len < 0) {
++                    inner.back.store(b + 1)
++                    null
++                } else {
++                    val old = buffer
++                    var task = old.read(b)
++                    if (len == 0L) {
++                        // The last task is contested by the owner and all stealers.
++                        if (!inner.front.compareAndSet(f, f + 1)) task = null
++                        inner.back.store(b + 1)
++                    } else if (old.cap > MIN_CAP && len < old.cap / 4) {
++                        resize(old.cap / 2)
++                    }
++                    if (task != null) old.release(b, task)
++                    task
++                }
++            }
++        }
++    }
++
++    override fun toString(): String = "Worker { .. }"
+ }
++// port-lint: source crossbeam-deque/src/deque.rs
++@file:OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
++
++package io.github.kotlinmania.crossbeam.deque
+ 
+ /**
+- * A stealer handle of a worker queue.
++ * A stealer handle of a worker queue of non-null tasks.
+  *
+  * Stealers can be shared among threads.
+  *
+@@ -512,10 +1192,10 @@
+  * # Examples
+  *
+  * ```kotlin
+- * import crossbeamdeque.Steal
+- * import crossbeamdeque.Worker
+- *
+- * val w = Worker.newLifo()
++ * import io.github.kotlinmania.crossbeam.deque.Steal
++ * import io.github.kotlinmania.crossbeam.deque.Worker
++ *
++ * val w = Worker.newLifo<Int>()
+  * w.push(1)
+  * w.push(2)
+  * val s = w.stealer()
+@@ -524,23 +1204,17 @@
+  * check(s.steal() == Steal.Empty)
+  * ```
+  */
+-public class Stealer<T>(
+-    /**
+-     * A reference to the inner representation of the queue.
+-     */
+-    public var inner: CachePadded<Inner<T>> = CachePadded<Inner<T>>(),
+-    /**
+-     * The flavor of the queue.
+-     */
+-    public var flavor: Flavor = Flavor(),
++public class Stealer<T : Any> internal constructor(
++    private val inner: Inner<T>,
++    private val flavor: Flavor,
+ ) {
+     /**
+      * Returns `true` if the queue is empty.
+      *
+      * ```kotlin
+-     * import crossbeamdeque.Worker
+-     *
+-     * val w = Worker.newLifo()
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val w = Worker.newLifo<Int>()
+      * val s = w.stealer()
+      * check(s.isEmpty())
+      * w.push(1)
+@@ -548,19 +1222,17 @@
+      * ```
+      */
+     public fun isEmpty(): Boolean {
+-        val f = this.inner.front.load(Ordering.Acquire)
+-        atomic.fence(Ordering.SeqCst)
+-        val b = this.inner.back.load(Ordering.Acquire)
+-        return b.wrappingSub(f) <= 0
++        val f = inner.front.load()
++        return inner.back.load() - f <= 0
+     }
+ 
+     /**
+      * Returns the number of tasks in the deque.
+      *
+      * ```kotlin
+-     * import crossbeamdeque.Worker
+-     *
+-     * val w = Worker.newLifo()
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val w = Worker.newLifo<Int>()
+      * val s = w.stealer()
+      * check(s.len() == 0)
+      * w.push(1)
+@@ -570,10 +1242,8 @@
+      * ```
+      */
+     public fun len(): Int {
+-        val f = this.inner.front.load(Ordering.Acquire)
+-        atomic.fence(Ordering.SeqCst)
+-        val b = this.inner.back.load(Ordering.Acquire)
+-        return b.wrappingSub(f).max(0).toInt()
++        val f = inner.front.load()
++        return (inner.back.load() - f).coerceAtLeast(0).toInt()
+     }
+ 
+     /**
+@@ -582,10 +1252,10 @@
+      * # Examples
+      *
+      * ```kotlin
+-     * import crossbeamdeque.Steal
+-     * import crossbeamdeque.Worker
+-     *
+-     * val w = Worker.newLifo()
++     * import io.github.kotlinmania.crossbeam.deque.Steal
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val w = Worker.newLifo<Int>()
+      * w.push(1)
+      * w.push(2)
+      * val s = w.stealer()
+@@ -594,34 +1264,16 @@
+      * ```
+      */
+     public fun steal(): Steal<T> {
+-        // Load the front index.
+-        val f = this.inner.front.load(Ordering.Acquire)
+-        // A SeqCst fence is needed here.
+-        //
+-        // If the current thread is already pinned (reentrantly), we must manually issue the
+-        // fence. Otherwise, the following pinning will issue the fence anyway, so we don't
+-        // have to.
+-        if (epoch.isPinned()) {
+-            atomic.fence(Ordering.SeqCst)
+-        }
+-        val guard = epoch.pin()
+-        // Load the back index.
+-        val b = this.inner.back.load(Ordering.Acquire)
+-        // Is the queue empty?
+-        if (b.wrappingSub(f) <= 0) {
+-            return Steal.Empty
+-        }
+-        // Load the buffer and read the task at the front.
+-        val buffer = this.inner.buffer.load(Ordering.Acquire, guard)
+-        val task = buffer.deref().read(f)
+-        // Try incrementing the front index to steal the task.
+-        // If the buffer has been swapped or the increment fails, we retry.
+-        if (this.inner.buffer.load(Ordering.Acquire, guard) != buffer || this.inner.front.compareExchange(f, f.wrappingAdd(1), Ordering.SeqCst, Ordering.Relaxed).isErr()) {
+-            // We didn't steal this task, forget it.
+-            return Steal.Retry
+-        }
+-        // Return the stolen task.
+-        return Steal.Success(task.assumeInit())
++        val f = inner.front.load()
++        // Kotlin SC atomics supply the ordering of epoch::pin's fence. A strong buffer
++        // reference protects its allocation throughout the speculative read and index CAS.
++        val b = inner.back.load()
++        if (b - f <= 0) return Steal.Empty
++        val buffer = inner.buffer.load()
++        val task = buffer.read(f)
++        if (inner.buffer.load() !== buffer || !inner.front.compareAndSet(f, f + 1)) return Steal.Retry
++        buffer.release(f, task)
++        return Steal.Success(checkNotNull(task).value)
+     }
+ 
+     /**
+@@ -633,23 +1285,21 @@
+      * # Examples
+      *
+      * ```kotlin
+-     * import crossbeamdeque.Worker
+-     *
+-     * val w1 = Worker.newFifo()
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val w1 = Worker.newFifo<Int>()
+      * w1.push(1)
+      * w1.push(2)
+      * w1.push(3)
+      * w1.push(4)
+      * val s = w1.stealer()
+-     * val w2 = Worker.newFifo()
++     * val w2 = Worker.newFifo<Int>()
+      * s.stealBatch(w2)
+      * check(w2.pop() == 1)
+      * check(w2.pop() == 2)
+      * ```
+      */
+-    public fun stealBatch(dest: Worker<T>): Steal<Unit> {
+-        return this.stealBatchWithLimit(dest, MAX_BATCH)
+-    }
++    public fun stealBatch(dest: Worker<T>): Steal<Unit> = stealBatchWithLimit(dest, MAX_BATCH)
+ 
+     /**
+      * Steals no more than `limit` of tasks and pushes them into another worker.
+@@ -660,9 +1310,9 @@
+      * # Examples
+      *
+      * ```kotlin
+-     * import crossbeamdeque.Worker
+-     *
+-     * val w1 = Worker.newFifo()
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val w1 = Worker.newFifo<Int>()
+      * w1.push(1)
+      * w1.push(2)
+      * w1.push(3)
+@@ -670,7 +1320,7 @@
+      * w1.push(5)
+      * w1.push(6)
+      * val s = w1.stealer()
+-     * val w2 = Worker.newFifo()
++     * val w2 = Worker.newFifo<Int>()
+      * s.stealBatchWithLimit(w2, 2)
+      * check(w2.pop() == 1)
+      * check(w2.pop() == 2)
+@@ -685,137 +1335,59 @@
+      * ```
+      */
+     public fun stealBatchWithLimit(dest: Worker<T>, limit: Int): Steal<Unit> {
+-        check(limit > 0)
+-        if (Arc.ptrEq(this.inner, dest.inner)) {
+-            if (dest.isEmpty()) {
+-                return Steal.Empty
+-            } else {
+-                return Steal.Success()
+-            }
+-        }
+-        // Load the front index.
+-        var f = this.inner.front.load(Ordering.Acquire)
+-        // A SeqCst fence is needed here.
+-        //
+-        // If the current thread is already pinned (reentrantly), we must manually issue the
+-        // fence. Otherwise, the following pinning will issue the fence anyway, so we don't
+-        // have to.
+-        if (epoch.isPinned()) {
+-            atomic.fence(Ordering.SeqCst)
+-        }
+-        val guard = epoch.pin()
+-        // Load the back index.
+-        val b = this.inner.back.load(Ordering.Acquire)
+-        // Is the queue empty?
+-        val len = b.wrappingSub(f)
+-        if (len <= 0) {
+-            return Steal.Empty
+-        }
+-        // Reserve capacity for the stolen batch.
+-        val batchSize = minOf((len + 1) / 2, limit)
++        require(limit > 0)
++        if (inner === dest.inner) return if (dest.isEmpty()) Steal.Empty else Steal.Success(Unit)
++        var f = inner.front.load()
++        val b = inner.back.load()
++        val len = b - f
++        if (len <= 0) return Steal.Empty
++        var batchSize = minOf((len + 1) / 2, limit.toLong()).toInt()
+         dest.reserve(batchSize)
+-        var batchSize1 = batchSize.toInt()
+-        // Get the destination buffer and back index.
+-        val destBuffer = dest.buffer.get()
+-        var destB = dest.inner.back.load(Ordering.Relaxed)
+-        // Load the buffer.
+-        val buffer = this.inner.buffer.load(Ordering.Acquire, guard)
+-        when (this.flavor) {
+-            // Steal a batch of tasks from the front at once.
++        val destBuffer = dest.buffer
++        var destB = dest.inner.back.load()
++        val buffer = inner.buffer.load()
++        when (flavor) {
+             Flavor.Fifo -> {
+-                // Copy the batch from the source to the destination buffer.
+-                when (dest.flavor) {
+-                    Flavor.Fifo -> {
+-                        for (i in 0 until batchSize1) {
+-                            run {
+-                                val task = buffer.deref().read(f.wrappingAdd(i))
+-                                destBuffer.write(destB.wrappingAdd(i), task)
+-                            }
+-                        }
+-                    }
+-                    Flavor.Lifo -> {
+-                        for (i1 in 0 until batchSize1) {
+-                            run {
+-                                val task1 = buffer.deref().read(f.wrappingAdd(i1))
+-                                destBuffer.write(destB.wrappingAdd(batchSize1 - 1 - i1), task1)
+-                            }
+-                        }
+-                    }
+-                }
+-                // Try incrementing the front index to steal the batch.
+-                // If the buffer has been swapped or the increment fails, we retry.
+-                if (this.inner.buffer.load(Ordering.Acquire, guard) != buffer || this.inner.front.compareExchange(f, f.wrappingAdd(batchSize1), Ordering.SeqCst, Ordering.Relaxed).isErr()) {
++                for (i in 0 until batchSize) {
++                    val offset = if (dest.flavor == Flavor.Fifo) i else batchSize - 1 - i
++                    destBuffer.write(destB + offset, buffer.read(f + i))
++                }
++                if (inner.buffer.load() !== buffer || !inner.front.compareAndSet(f, f + batchSize)) {
++                    // No destination task is published. Release speculative GC references.
++                    for (i in 0 until batchSize) destBuffer.write(destB + i, null)
+                     return Steal.Retry
+                 }
+-                destB = destB.wrappingAdd(batchSize1)
+-            }
+-            // Steal a batch of tasks from the front one by one.
++                for (i in 0 until batchSize) {
++                    val offset = if (dest.flavor == Flavor.Fifo) i else batchSize - 1 - i
++                    buffer.release(f + i, destBuffer.read(destB + offset))
++                }
++                destB += batchSize
++            }
+             Flavor.Lifo -> {
+-                // This loop may modify the batchSize, which triggers a clippy lint warning.
+-                // Use a new variable to avoid the warning, and to make it clear we aren't
+-                // modifying the loop exit condition during iteration.
+-                val originalBatchSize = batchSize1
+-                for (i2 in 0 until originalBatchSize) {
+-                    // If this is not the first steal, check whether the queue is empty.
+-                    if (i2 > 0) {
+-                        // We've already got the current front index. Now execute the fence to
+-                        // synchronize with other threads.
+-                        atomic.fence(Ordering.SeqCst)
+-                        // Load the back index.
+-                        val b1 = this.inner.back.load(Ordering.Acquire)
+-                        // Is the queue empty?
+-                        if (b1.wrappingSub(f) <= 0) {
+-                            batchSize1 = i2
+-                            break
+-                        }
+-                    }
+-                    // Read the task at the front.
+-                    val task2 = buffer.deref().read(f)
+-                    // Try incrementing the front index to steal the task.
+-                    // If the buffer has been swapped or the increment fails, we retry.
+-                    if (this.inner.buffer.load(Ordering.Acquire, guard) != buffer || this.inner.front.compareExchange(f, f.wrappingAdd(1), Ordering.SeqCst, Ordering.Relaxed).isErr()) {
+-                        // We didn't steal this task, forget it and break from the loop.
+-                        batchSize1 = i2
++                // A LIFO owner may remove from the back, so claim front tasks one at a time.
++                val originalBatchSize = batchSize
++                for (i in 0 until originalBatchSize) {
++                    if (i > 0 && inner.back.load() - f <= 0) {
++                        batchSize = i
+                         break
+                     }
+-                    // Write the stolen task into the destination buffer.
+-                    run {
+-                        destBuffer.write(destB, task2)
++                    val task = buffer.read(f)
++                    if (inner.buffer.load() !== buffer || !inner.front.compareAndSet(f, f + 1)) {
++                        batchSize = i
++                        break
+                     }
+-                    // Move the source front index and the destination back index one step forward.
+-                    f = f.wrappingAdd(1)
+-                    destB = destB.wrappingAdd(1)
+-                }
+-                // If we didn't steal anything, the operation needs to be retried.
+-                if (batchSize1 == 0) {
+-                    return Steal.Retry
+-                }
+-                // If stealing into a FIFO queue, stolen tasks need to be reversed.
+-                if (dest.flavor == Flavor.Fifo) {
+-                    for (i3 in 0 until batchSize1 / 2) {
+-                        run {
+-                            val i1 = destB.wrappingSub(batchSize1 - i3)
+-                            val i2 = destB.wrappingSub(i3 + 1)
+-                            val t1 = destBuffer.read(i1)
+-                            val t2 = destBuffer.read(i2)
+-                            destBuffer.write(i1, t2)
+-                            destBuffer.write(i2, t1)
+-                        }
+-                    }
+-                }
+-            }
+-        }
+-        // ThreadSanitizer does not understand fences, so we omit fence and do store with Release ordering.
+-        atomic.fence(Ordering.Release)
+-        val storeOrder = if (false) {
+-            Ordering.Release
+-        } else {
+-            Ordering.Relaxed
+-        }
+-        // Update the back index in the destination queue.
+-        dest.inner.back.store(destB, storeOrder)
+-        // Return with success.
+-        return Steal.Success()
++                    destBuffer.write(destB, checkNotNull(task))
++                    buffer.release(f, task)
++                    f += 1
++                    destB += 1
++                }
++                if (batchSize == 0) return Steal.Retry
++                if (dest.flavor == Flavor.Fifo) reverse(destBuffer, destB, batchSize)
++            }
++        }
++        // Publish the entire transferred batch with one SC back-index store.
++        dest.inner.back.store(destB)
++        return Steal.Success(Unit)
+     }
+ 
+     /**
+@@ -827,23 +1399,21 @@
+      * # Examples
+      *
+      * ```kotlin
+-     * import crossbeamdeque.Steal
+-     * import crossbeamdeque.Worker
+-     *
+-     * val w1 = Worker.newFifo()
++     * import io.github.kotlinmania.crossbeam.deque.Steal
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val w1 = Worker.newFifo<Int>()
+      * w1.push(1)
+      * w1.push(2)
+      * w1.push(3)
+      * w1.push(4)
+      * val s = w1.stealer()
+-     * val w2 = Worker.newFifo()
++     * val w2 = Worker.newFifo<Int>()
+      * check(s.stealBatchAndPop(w2) == Steal.Success(1))
+      * check(w2.pop() == 2)
+      * ```
+      */
+-    public fun stealBatchAndPop(dest: Worker<T>): Steal<T> {
+-        return this.stealBatchWithLimitAndPop(dest, MAX_BATCH)
+-    }
++    public fun stealBatchAndPop(dest: Worker<T>): Steal<T> = stealBatchWithLimitAndPop(dest, MAX_BATCH)
+ 
+     /**
+      * Steals no more than `limit` of tasks, pushes them into another worker, and pops a task from
+@@ -855,10 +1425,10 @@
+      * # Examples
+      *
+      * ```kotlin
+-     * import crossbeamdeque.Steal
+-     * import crossbeamdeque.Worker
+-     *
+-     * val w1 = Worker.newFifo()
++     * import io.github.kotlinmania.crossbeam.deque.Steal
++     * import io.github.kotlinmania.crossbeam.deque.Worker
++     *
++     * val w1 = Worker.newFifo<Int>()
+      * w1.push(1)
+      * w1.push(2)
+      * w1.push(3)
+@@ -866,7 +1436,7 @@
+      * w1.push(5)
+      * w1.push(6)
+      * val s = w1.stealer()
+-     * val w2 = Worker.newFifo()
++     * val w2 = Worker.newFifo<Int>()
+      * check(s.stealBatchWithLimitAndPop(w2, 2) == Steal.Success(1))
+      * check(w2.pop() == 2)
+      * check(w2.pop() == null)
+@@ -882,1130 +1452,79 @@
+      * ```
+      */
+     public fun stealBatchWithLimitAndPop(dest: Worker<T>, limit: Int): Steal<T> {
+-        check(limit > 0)
+-        if (Arc.ptrEq(this.inner, dest.inner)) {
+-            when (val matchVal = dest.pop()) {
+-                null -> { return Steal.Empty }
+-                else -> {
+-                    val task = matchVal
+-                    return Steal.Success(task)
+-                }
+-            }
+-        }
+-        // Load the front index.
+-        var f = this.inner.front.load(Ordering.Acquire)
+-        // A SeqCst fence is needed here.
+-        //
+-        // If the current thread is already pinned (reentrantly), we must manually issue the
+-        // fence. Otherwise, the following pinning will issue the fence anyway, so we don't
+-        // have to.
+-        if (epoch.isPinned()) {
+-            atomic.fence(Ordering.SeqCst)
+-        }
+-        val guard = epoch.pin()
+-        // Load the back index.
+-        val b = this.inner.back.load(Ordering.Acquire)
+-        // Is the queue empty?
+-        val len = b.wrappingSub(f)
+-        if (len <= 0) {
+-            return Steal.Empty
+-        }
+-        // Reserve capacity for the stolen batch.
+-        val batchSize = minOf((len - 1) / 2, limit - 1)
++        require(limit > 0)
++        if (inner === dest.inner) {
++            val task = dest.popEntry() ?: return Steal.Empty
++            return Steal.Success(task.value)
++        }
++        var f = inner.front.load()
++        val b = inner.back.load()
++        val len = b - f
++        if (len <= 0) return Steal.Empty
++        var batchSize = minOf((len - 1) / 2, (limit - 1).toLong()).toInt()
+         dest.reserve(batchSize)
+-        var batchSize1 = batchSize.toInt()
+-        // Get the destination buffer and back index.
+-        val destBuffer = dest.buffer.get()
+-        var destB = dest.inner.back.load(Ordering.Relaxed)
+-        // Load the buffer
+-        val buffer = this.inner.buffer.load(Ordering.Acquire, guard)
+-        // Read the task at the front.
+-        var task1 = buffer.deref().read(f)
+-        when (this.flavor) {
+-            // Steal a batch of tasks from the front at once.
++        val destBuffer = dest.buffer
++        var destB = dest.inner.back.load()
++        val buffer = inner.buffer.load()
++        var task = buffer.read(f)
++        when (flavor) {
+             Flavor.Fifo -> {
+-                // Copy the batch from the source to the destination buffer.
+-                when (dest.flavor) {
+-                    Flavor.Fifo -> {
+-                        for (i in 0 until batchSize1) {
+-                            run {
+-                                val task2 = buffer.deref().read(f.wrappingAdd(i + 1))
+-                                destBuffer.write(destB.wrappingAdd(i), task2)
+-                            }
+-                        }
+-                    }
+-                    Flavor.Lifo -> {
+-                        for (i1 in 0 until batchSize1) {
+-                            run {
+-                                val task3 = buffer.deref().read(f.wrappingAdd(i1 + 1))
+-                                destBuffer.write(destB.wrappingAdd(batchSize1 - 1 - i1), task3)
+-                            }
+-                        }
+-                    }
+-                }
+-                // Try incrementing the front index to steal the task.
+-                // If the buffer has been swapped or the increment fails, we retry.
+-                if (this.inner.buffer.load(Ordering.Acquire, guard) != buffer || this.inner.front.compareExchange(f, f.wrappingAdd(batchSize1 + 1), Ordering.SeqCst, Ordering.Relaxed).isErr()) {
+-                    // We didn't steal this task, forget it.
++                for (i in 0 until batchSize) {
++                    val offset = if (dest.flavor == Flavor.Fifo) i else batchSize - 1 - i
++                    destBuffer.write(destB + offset, buffer.read(f + i + 1))
++                }
++                if (inner.buffer.load() !== buffer || !inner.front.compareAndSet(f, f + batchSize + 1)) {
++                    for (i in 0 until batchSize) destBuffer.write(destB + i, null)
+                     return Steal.Retry
+                 }
+-                destB = destB.wrappingAdd(batchSize1)
+-            }
+-            // Steal a batch of tasks from the front one by one.
++                buffer.release(f, task)
++                for (i in 0 until batchSize) {
++                    val offset = if (dest.flavor == Flavor.Fifo) i else batchSize - 1 - i
++                    buffer.release(f + i + 1, destBuffer.read(destB + offset))
++                }
++                destB += batchSize
++            }
+             Flavor.Lifo -> {
+-                // Try incrementing the front index to steal the task.
+-                if (this.inner.front.compareExchange(f, f.wrappingAdd(1), Ordering.SeqCst, Ordering.Relaxed).isErr()) {
+-                    // We didn't steal this task, forget it.
+-                    return Steal.Retry
+-                }
+-                // Move the front index one step forward.
+-                f = f.wrappingAdd(1)
+-                // Repeat the same procedure for the batch steals.
+-                //
+-                // This loop may modify the batchSize, which triggers a clippy lint warning.
+-                // Use a new variable to avoid the warning, and to make it clear we aren't
+-                // modifying the loop exit condition during iteration.
+-                val originalBatchSize = batchSize1
+-                for (i2 in 0 until originalBatchSize) {
+-                    // We've already got the current front index. Now execute the fence to
+-                    // synchronize with other threads.
+-                    atomic.fence(Ordering.SeqCst)
+-                    // Load the back index.
+-                    val b1 = this.inner.back.load(Ordering.Acquire)
+-                    // Is the queue empty?
+-                    if (b1.wrappingSub(f) <= 0) {
+-                        batchSize1 = i2
++                if (!inner.front.compareAndSet(f, f + 1)) return Steal.Retry
++                buffer.release(f, task)
++                f += 1
++                val originalBatchSize = batchSize
++                for (i in 0 until originalBatchSize) {
++                    if (inner.back.load() - f <= 0) {
++                        batchSize = i
+                         break
+                     }
+-                    // Read the task at the front.
+-                    val tmp = buffer.deref().read(f)
+-                    // Try incrementing the front index to steal the task.
+-                    // If the buffer has been swapped or the increment fails, we retry.
+-                    if (this.inner.buffer.load(Ordering.Acquire, guard) != buffer || this.inner.front.compareExchange(f, f.wrappingAdd(1), Ordering.SeqCst, Ordering.Relaxed).isErr()) {
+-                        // We didn't steal this task, forget it and break from the loop.
+-                        batchSize1 = i2
++                    val next = buffer.read(f)
++                    if (inner.buffer.load() !== buffer || !inner.front.compareAndSet(f, f + 1)) {
++                        batchSize = i
+                         break
+                     }
+-                    // Write the previously stolen task into the destination buffer.
+-                    run {
+-                        destBuffer.write(destB, mem.replace(task1, tmp))
+-                    }
+-                    // Move the source front index and the destination back index one step forward.
+-                    f = f.wrappingAdd(1)
+-                    destB = destB.wrappingAdd(1)
+-                }
+-                // If stealing into a FIFO queue, stolen tasks need to be reversed.
+-                if (dest.flavor == Flavor.Fifo) {
+-                    for (i3 in 0 until batchSize1 / 2) {
+-                        run {
+-                            val i1 = destB.wrappingSub(batchSize1 - i3)
+-                            val i2 = destB.wrappingSub(i3 + 1)
+-                            val t1 = destBuffer.read(i1)
+-                            val t2 = destBuffer.read(i2)
+-                            destBuffer.write(i1, t2)
+-                            destBuffer.write(i2, t1)
+-                        }
+-                    }
+-                }
+-            }
+-        }
+-        // ThreadSanitizer does not understand fences, so we omit fence and do store with Release ordering.
+-        atomic.fence(Ordering.Release)
+-        val storeOrder = if (false) {
+-            Ordering.Release
+-        } else {
+-            Ordering.Relaxed
+-        }
+-        // Update the back index in the destination queue.
+-        dest.inner.back.store(destB, storeOrder)
+-        // Return with success.
+-        return Steal.Success(task1.assumeInit())
+-    }
+-
+-    public fun clone(): Stealer<T> {
+-        return Stealer(inner = this.inner.clone(), flavor = this.flavor)
+-    }
+-
+-    public fun fmt(f: StringBuilder) {
+-        f.append("Stealer { .. }")
++                    // The last stolen task is returned; earlier tasks go to the destination.
++                    destBuffer.write(destB, checkNotNull(task))
++                    task = next
++                    buffer.release(f, next)
++                    f += 1
++                    destB += 1
++                }
++                if (dest.flavor == Flavor.Fifo) reverse(destBuffer, destB, batchSize)
++            }
++        }
++        dest.inner.back.store(destB)
++        return Steal.Success(checkNotNull(task).value)
++    }
++
++    /** Creates another handle to this same worker queue. */
++    public fun clone(): Stealer<T> = Stealer(inner, flavor)
++
++    override fun toString(): String = "Stealer { .. }"
++
++    private fun reverse(buffer: Buffer<T>, back: Long, count: Int) {
++        for (i in 0 until count / 2) {
++            val first = back - (count - i)
++            val last = back - (i + 1)
++            val task = buffer.read(first)
++            buffer.write(first, buffer.read(last))
++            buffer.write(last, task)
++        }
+     }
+ }
+-
+-// Bits indicating the state of a slot:
+-// * If a task has been written into the slot, `WRITE` is set.
+-// * If a task has been read from the slot, `READ` is set.
+-// * If the block is being destroyed, `DESTROY` is set.
+-public val WRITE: Int = 1
+-
+-public val READ: Int = 2
+-
+-public val DESTROY: Int = 4
+-
+-// Each block covers one "lap" of indices.
+-public val LAP: Index = 64
+-
+-// The maximum number of values a block can hold.
+-public val BLOCK_CAP: Int = LAP - 1
+-
+-// How many lower bits are reserved for metadata.
+-public val SHIFT: Int = 1
+-
+-// Indicates that the block is not the last one.
+-public val HAS_NEXT: Index = 1
+-
+-/**
+- * A slot in a block.
+- */
+-public class Slot<T>(
+-    /**
+-     * The task.
+-     */
+-    public var task: UnsafeCell<T?> = UnsafeCell<T?>(),
+-    /**
+-     * The state of the slot.
+-     */
+-    public var state: AtomicUsize = AtomicUsize(),
+-) {
+-    /**
+-     * Waits until a task is written into the slot.
+-     */
+-    public fun waitWrite() {
+-        val backoff = Backoff.new()
+-        while (this.state.load(Ordering.Acquire) and WRITE == 0) {
+-            backoff.snooze()
+-        }
+-    }
+-}
+-
+-/**
+- * A block in a linked list.
+- *
+- * Each block in the list can hold up to `BLOCK_CAP` values.
+- */
+-public class Block<T>(
+-    /**
+-     * The next block in the linked list.
+-     */
+-    public var next: AtomicPtr<Block<T>> = AtomicPtr<Block<T>>(),
+-    /**
+-     * Slots for values.
+-     */
+-    public var slots: List<Slot<T>> = List(BLOCK_CAP) { Slot<T>() },
+-) {
+-    /**
+-     * Waits until the next pointer is set.
+-     */
+-    public fun waitNext(): Block<T>? {
+-        val backoff = Backoff.new()
+-        while (true) {
+-            val next = this.next.load(Ordering.Acquire)
+-            if (!(next == null)) {
+-                return next
+-            }
+-            backoff.snooze()
+-        }
+-    }
+-
+-    public companion object {
+-        public val LAYOUT: Layout = run {
+-            val layout = Layout.new<Block<T>>()
+-            check(layout.size() != 0) { "Block should never be zero-sized, as it has an AtomicPtr field" }
+-            layout
+-        }
+-
+-        /**
+-         * Creates an empty block.
+-         */
+-        public fun <T> new(): Block<T> {
+-            // SAFETY: layout is not zero-sized
+-            val ptr = allocZeroed(Block.LAYOUT)
+-            // Handle allocation failure
+-            if ((ptr == null)) {
+-                handleAllocError(Block.LAYOUT)
+-            }
+-            // SAFETY: This is safe because:
+-            // [1] `Block.next` (AtomicPtr) may be safely zero initialized.
+-            // [2] `Block.slots` (Array) may be safely zero initialized because of [3, 4].
+-            // [3] `Slot.task` (UnsafeCell) may be safely zero initialized because it
+-            // holds a MaybeUninit.
+-            // [4] `Slot.state` (AtomicUsize) may be safely zero initialized.
+-            // Note: unchecked { Holder::newZeroed().assumeInit() }
+-            return Box.fromRaw(((ptr as Any?) as Block<T>?))
+-        }
+-
+-        /**
+-         * Sets the `DESTROY` bit in slots starting from `start` and destroys the block.
+-         */
+-        public fun <T> destroy(thisRef: Block<T>?, count: Int) {
+-            // It is not necessary to set the `DESTROY` bit in the last slot because that slot has
+-            // begun destruction of the block.
+-            for (i in (0 until count).rev()) {
+-                val slot = thisRef!!.slots.getUnchecked(i)
+-                // Mark the `DESTROY` bit if a thread is still using the slot.
+-                if (slot.state.load(Ordering.Acquire) and READ == 0 && slot.state.fetchOr(DESTROY, Ordering.AcqRel) and READ == 0) {
+-                    // If a thread is still using the slot, it will continue destruction of the block.
+-                    return
+-                }
+-            }
+-            // No thread is using the block, now it is safe to destroy it.
+-            drop(Box.fromRaw(thisRef))
+-        }
+-    }
+-}
+-
+-/**
+- * A position in a queue.
+- */
+-public class Position<T>(
+-    /**
+-     * The index in the queue.
+-     */
+-    public var index: AtomicIndex = AtomicIndex(),
+-    /**
+-     * The block in the linked list.
+-     */
+-    public var block: AtomicPtr<Block<T>> = AtomicPtr<Block<T>>(),
+-)
+-
+-/**
+- * An injector queue.
+- *
+- * This is a FIFO queue that can be shared among multiple threads. Task schedulers typically have
+- * a single injector queue, which is the entry point for new tasks.
+- *
+- * # Examples
+- *
+- * ```kotlin
+- * import crossbeamdeque.Injector
+- * import crossbeamdeque.Steal
+- *
+- * val q = Injector.new()
+- * q.push(1)
+- * q.push(2)
+- * check(q.steal() == Steal.Success(1))
+- * check(q.steal() == Steal.Success(2))
+- * check(q.steal() == Steal.Empty)
+- * ```
+- */
+-public class Injector<T>(
+-    /**
+-     * The head of the queue.
+-     */
+-    public var head: CachePadded<Position<T>> = CachePadded<Position<T>>(),
+-    /**
+-     * The tail of the queue.
+-     */
+-    public var tail: CachePadded<Position<T>> = CachePadded<Position<T>>(),
+-    /**
+-     * Indicates that dropping a `Injector<T>` may drop values of type `T`.
+-     */
+-    public var marker: Unit = Unit,
+-) {
+-    /**
+-     * Pushes a task into the queue.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.Injector
+-     *
+-     * val w = Injector.new()
+-     * w.push(1)
+-     * w.push(2)
+-     * ```
+-     */
+-    public fun push(task: T) {
+-        val backoff = Backoff.new()
+-        var tail = this.tail.index.load(Ordering.Acquire)
+-        var block = this.tail.block.load(Ordering.Acquire)
+-        var nextBlock = null
+-        while (true) {
+-            // Calculate the offset of the index into the block.
+-            val offset = ((tail shr SHIFT) % LAP)
+-            // If we reached the end of the block, wait until the next one is installed.
+-            if (offset == BLOCK_CAP) {
+-                backoff.snooze()
+-                tail = this.tail.index.load(Ordering.Acquire)
+-                block = this.tail.block.load(Ordering.Acquire)
+-                continue
+-            }
+-            // If we're going to have to install the next block, allocate it in advance in order to
+-            // make the wait for other threads as short as possible.
+-            if (offset + 1 == BLOCK_CAP && nextBlock == null) {
+-                nextBlock = Block.new()
+-            }
+-            val newTail = tail + (1 shl SHIFT)
+-            // Try advancing the tail forward.
+-            run {
+-                val matchVal = this.tail.index.compareExchangeWeak(tail, newTail, Ordering.SeqCst, Ordering.Acquire)
+-                if (matchVal.isSuccess) {
+-                    run {
+-                        // If we've reached the end of the block, install the next one.
+-                        if (offset + 1 == BLOCK_CAP) {
+-                            val nextBlock1 = Box.intoRaw(nextBlock!!)
+-                            val nextIndex = newTail.wrappingAdd(1 shl SHIFT)
+-                            this.tail.block.store(nextBlock1, Ordering.Release)
+-                            this.tail.index.store(nextIndex, Ordering.Release)
+-                            block.next.store(nextBlock1, Ordering.Release)
+-                        }
+-                        // Write the task into the slot.
+-                        val slot = block.slots.getUnchecked(offset)
+-                        slot.task.get().write(MaybeUninit.new(task))
+-                        slot.state.fetchOr(WRITE, Ordering.Release)
+-                        return
+-                    }
+-                } else {
+-                    val t = matchVal.exceptionOrNull()!!
+-                    tail = t
+-                    block = this.tail.block.load(Ordering.Acquire)
+-                    backoff.spin()
+-                }
+-            }
+-        }
+-    }
+-
+-    /**
+-     * Steals a task from the queue.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.Injector
+-     * import crossbeamdeque.Steal
+-     *
+-     * val q = Injector.new()
+-     * q.push(1)
+-     * q.push(2)
+-     * check(q.steal() == Steal.Success(1))
+-     * check(q.steal() == Steal.Success(2))
+-     * check(q.steal() == Steal.Empty)
+-     * ```
+-     */
+-    public fun steal(): Steal<T> {
+-        var head: Any?
+-        var block: Any?
+-        var offset: Any?
+-        val backoff = Backoff.new()
+-        while (true) {
+-            head = this.head.index.load(Ordering.Acquire)
+-            block = this.head.block.load(Ordering.Acquire)
+-            // Calculate the offset of the index into the block.
+-            offset = ((head shr SHIFT) % LAP)
+-            // If we reached the end of the block, wait until the next one is installed.
+-            if (offset == BLOCK_CAP) {
+-                backoff.snooze()
+-            } else {
+-                break
+-            }
+-        }
+-        var newHead = head + (1 shl SHIFT)
+-        if (newHead and HAS_NEXT == 0) {
+-            atomic.fence(Ordering.SeqCst)
+-            val tail = this.tail.index.load(Ordering.Relaxed)
+-            // If the tail equals the head, that means the queue is empty.
+-            if (head shr SHIFT == tail shr SHIFT) {
+-                return Steal.Empty
+-            }
+-            // If head and tail are not in the same block, set `HAS_NEXT` in head.
+-            if ((head shr SHIFT) / LAP != (tail shr SHIFT) / LAP) {
+-                newHead = newHead or HAS_NEXT
+-            }
+-        }
+-        // Try moving the head index forward.
+-        if (this.head.index.compareExchangeWeak(head, newHead, Ordering.SeqCst, Ordering.Acquire).isErr()) {
+-            return Steal.Retry
+-        }
+-        return run {
+-            // If we've reached the end of the block, move to the next one.
+-            if (offset + 1 == BLOCK_CAP) {
+-                val next = block.waitNext()
+-                var nextIndex = (newHead and HAS_NEXT.inv()).wrappingAdd(1 shl SHIFT)
+-                if (!(next.next.load(Ordering.Relaxed) == null)) {
+-                    nextIndex = nextIndex or HAS_NEXT
+-                }
+-                this.head.block.store(next, Ordering.Release)
+-                this.head.index.store(nextIndex, Ordering.Release)
+-            }
+-            // Read the task.
+-            val slot = block.slots.getUnchecked(offset)
+-            slot.waitWrite()
+-            val task = slot.task.get().assumeInit()
+-            // Destroy the block if we've reached the end, or if another thread wanted to destroy
+-            // but couldn't because we were busy reading from the slot.
+-            if ((offset + 1 == BLOCK_CAP) || (slot.state.fetchOr(READ, Ordering.AcqRel) and DESTROY != 0)) {
+-                Block.destroy(block, offset)
+-            }
+-            Steal.Success(task)
+-        }
+-    }
+-
+-    /**
+-     * Steals a batch of tasks and pushes them into a worker.
+-     *
+-     * How many tasks exactly will be stolen is not specified. That said, this method will try to
+-     * steal around half of the tasks in the queue, but also not more than some constant limit.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.Injector
+-     * import crossbeamdeque.Worker
+-     *
+-     * val q = Injector.new()
+-     * q.push(1)
+-     * q.push(2)
+-     * q.push(3)
+-     * q.push(4)
+-     * val w = Worker.newFifo()
+-     * q.stealBatch(w)
+-     * check(w.pop() == 1)
+-     * check(w.pop() == 2)
+-     * ```
+-     */
+-    public fun stealBatch(dest: Worker<T>): Steal<Unit> {
+-        return this.stealBatchWithLimit(dest, MAX_BATCH)
+-    }
+-
+-    /**
+-     * Steals no more than `limit` of tasks and pushes them into a worker.
+-     *
+-     * How many tasks exactly will be stolen is not specified. That said, this method will try to
+-     * steal around half of the tasks in the queue, but also not more than some constant limit.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.Injector
+-     * import crossbeamdeque.Worker
+-     *
+-     * val q = Injector.new()
+-     * q.push(1)
+-     * q.push(2)
+-     * q.push(3)
+-     * q.push(4)
+-     * q.push(5)
+-     * q.push(6)
+-     * val w = Worker.newFifo()
+-     * q.stealBatchWithLimit(w, 2)
+-     * check(w.pop() == 1)
+-     * check(w.pop() == 2)
+-     * check(w.pop() == null)
+-     * q.push(7)
+-     * q.push(8)
+-     * // Setting a large limit does not guarantee that all elements will be popped. In this case,
+-     * // half of the elements are currently popped, but the number of popped elements is considered
+-     * // an implementation detail that may be changed in the future.
+-     * q.stealBatchWithLimit(w, Int.MAX_VALUE)
+-     * check(w.len() == 3)
+-     * ```
+-     */
+-    public fun stealBatchWithLimit(dest: Worker<T>, limit: Int): Steal<Unit> {
+-        check(limit > 0)
+-        var head: Any?
+-        var block: Any?
+-        var offset: Any?
+-        val backoff = Backoff.new()
+-        while (true) {
+-            head = this.head.index.load(Ordering.Acquire)
+-            block = this.head.block.load(Ordering.Acquire)
+-            // Calculate the offset of the index into the block.
+-            offset = ((head shr SHIFT) % LAP)
+-            // If we reached the end of the block, wait until the next one is installed.
+-            if (offset == BLOCK_CAP) {
+-                backoff.snooze()
+-            } else {
+-                break
+-            }
+-        }
+-        var newHead = head
+-        val advance: Any?
+-        if (newHead and HAS_NEXT == 0) {
+-            atomic.fence(Ordering.SeqCst)
+-            val tail = this.tail.index.load(Ordering.Relaxed)
+-            // If the tail equals the head, that means the queue is empty.
+-            if (head shr SHIFT == tail shr SHIFT) {
+-                return Steal.Empty
+-            }
+-            // If head and tail are not in the same block, set `HAS_NEXT` in head. Also, calculate
+-            // the right batch size to steal.
+-            if ((head shr SHIFT) / LAP != (tail shr SHIFT) / LAP) {
+-                newHead = newHead or HAS_NEXT
+-                // We can steal all tasks till the end of the block.
+-                advance = (BLOCK_CAP - offset).min(limit)
+-            } else {
+-                val len = ((tail - head) shr SHIFT).toInt()
+-                // Steal half of the available tasks.
+-                advance = ((len + 1) / 2).min(limit)
+-            }
+-        } else {
+-            // We can steal all tasks till the end of the block.
+-            advance = (BLOCK_CAP - offset).min(limit)
+-        }
+-        newHead += (advance.toInt()) shl SHIFT
+-        val newOffset = offset + advance
+-        // Try moving the head index forward.
+-        if (this.head.index.compareExchangeWeak(head, newHead, Ordering.SeqCst, Ordering.Acquire).isErr()) {
+-            return Steal.Retry
+-        }
+-        // Reserve capacity for the stolen batch.
+-        val batchSize = newOffset - offset
+-        dest.reserve(batchSize)
+-        // Get the destination buffer and back index.
+-        val destBuffer = dest.buffer.get()
+-        val destB = dest.inner.back.load(Ordering.Relaxed)
+-        return run {
+-            // If we've reached the end of the block, move to the next one.
+-            if (newOffset == BLOCK_CAP) {
+-                val next = block.waitNext()
+-                var nextIndex = (newHead and HAS_NEXT.inv()).wrappingAdd(1 shl SHIFT)
+-                if (!(next.next.load(Ordering.Relaxed) == null)) {
+-                    nextIndex = nextIndex or HAS_NEXT
+-                }
+-                this.head.block.store(next, Ordering.Release)
+-                this.head.index.store(nextIndex, Ordering.Release)
+-            }
+-            // Copy values from the injector into the destination queue.
+-            when (dest.flavor) {
+-                Flavor.Fifo -> {
+-                    for (i in 0 until batchSize) {
+-                        // Read the task.
+-                        val slot = block.slots.getUnchecked(offset + i)
+-                        slot.waitWrite()
+-                        val task = slot.task.get()
+-                        // Write it into the destination queue.
+-                        destBuffer.write(destB.wrappingAdd(i.toInt()), task)
+-                    }
+-                }
+-                Flavor.Lifo -> {
+-                    for (i1 in 0 until batchSize) {
+-                        // Read the task.
+-                        val slot1 = block.slots.getUnchecked(offset + i1)
+-                        slot1.waitWrite()
+-                        val task1 = slot1.task.get()
+-                        // Write it into the destination queue.
+-                        destBuffer.write(destB.wrappingAdd((batchSize - 1 - i1).toInt()), task1)
+-                    }
+-                }
+-            }
+-            // ThreadSanitizer does not understand fences, so we omit fence and do store with Release ordering.
+-            atomic.fence(Ordering.Release)
+-            val storeOrder = if (false) {
+-                Ordering.Release
+-            } else {
+-                Ordering.Relaxed
+-            }
+-            // Update the back index in the destination queue.
+-            dest.inner.back.store(destB.wrappingAdd(batchSize.toInt()), storeOrder)
+-            // Destroy the block if we've reached the end, or if another thread wanted to destroy
+-            // but couldn't because we were busy reading from the slot.
+-            if (newOffset == BLOCK_CAP) {
+-                Block.destroy(block, offset)
+-            } else {
+-                for (i2 in offset until newOffset) {
+-                    val slot2 = block.slots.getUnchecked(i2)
+-                    if (slot2.state.fetchOr(READ, Ordering.AcqRel) and DESTROY != 0) {
+-                        Block.destroy(block, offset)
+-                        break
+-                    }
+-                }
+-            }
+-            Steal.Success()
+-        }
+-    }
+-
+-    /**
+-     * Steals a batch of tasks, pushes them into a worker, and pops a task from that worker.
+-     *
+-     * How many tasks exactly will be stolen is not specified. That said, this method will try to
+-     * steal around half of the tasks in the queue, but also not more than some constant limit.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.Injector
+-     * import crossbeamdeque.Steal
+-     * import crossbeamdeque.Worker
+-     *
+-     * val q = Injector.new()
+-     * q.push(1)
+-     * q.push(2)
+-     * q.push(3)
+-     * q.push(4)
+-     * val w = Worker.newFifo()
+-     * check(q.stealBatchAndPop(w) == Steal.Success(1))
+-     * check(w.pop() == 2)
+-     * ```
+-     */
+-    public fun stealBatchAndPop(dest: Worker<T>): Steal<T> {
+-        // Note: we use `MAX_BATCH + 1` as the hard limit for Injecter as the performance is slightly
+-        // better, but we may change it in the future to be compatible with the same method in Stealer.
+-        return this.stealBatchWithLimitAndPop(dest, MAX_BATCH + 1)
+-    }
+-
+-    /**
+-     * Steals no more than `limit` of tasks, pushes them into a worker, and pops a task from that worker.
+-     *
+-     * How many tasks exactly will be stolen is not specified. That said, this method will try to
+-     * steal around half of the tasks in the queue, but also not more than the given limit.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.Injector
+-     * import crossbeamdeque.Steal
+-     * import crossbeamdeque.Worker
+-     *
+-     * val q = Injector.new()
+-     * q.push(1)
+-     * q.push(2)
+-     * q.push(3)
+-     * q.push(4)
+-     * q.push(5)
+-     * q.push(6)
+-     * val w = Worker.newFifo()
+-     * check(q.stealBatchWithLimitAndPop(w, 2) == Steal.Success(1))
+-     * check(w.pop() == 2)
+-     * check(w.pop() == null)
+-     * q.push(7)
+-     * // Setting a large limit does not guarantee that all elements will be popped. In this case,
+-     * // half of the elements are currently popped, but the number of popped elements is considered
+-     * // an implementation detail that may be changed in the future.
+-     * check(q.stealBatchWithLimitAndPop(w, Int.MAX_VALUE) == Steal.Success(3))
+-     * check(w.pop() == 4)
+-     * check(w.pop() == 5)
+-     * check(w.pop() == null)
+-     * ```
+-     */
+-    public fun stealBatchWithLimitAndPop(dest: Worker<T>, limit: Int): Steal<T> {
+-        check(limit > 0)
+-        var head: Any?
+-        var block: Any?
+-        var offset: Any?
+-        val backoff = Backoff.new()
+-        while (true) {
+-            head = this.head.index.load(Ordering.Acquire)
+-            block = this.head.block.load(Ordering.Acquire)
+-            // Calculate the offset of the index into the block.
+-            offset = ((head shr SHIFT) % LAP)
+-            // If we reached the end of the block, wait until the next one is installed.
+-            if (offset == BLOCK_CAP) {
+-                backoff.snooze()
+-            } else {
+-                break
+-            }
+-        }
+-        var newHead = head
+-        val advance: Any?
+-        if (newHead and HAS_NEXT == 0) {
+-            atomic.fence(Ordering.SeqCst)
+-            val tail = this.tail.index.load(Ordering.Relaxed)
+-            // If the tail equals the head, that means the queue is empty.
+-            if (head shr SHIFT == tail shr SHIFT) {
+-                return Steal.Empty
+-            }
+-            // If head and tail are not in the same block, set `HAS_NEXT` in head.
+-            if ((head shr SHIFT) / LAP != (tail shr SHIFT) / LAP) {
+-                newHead = newHead or HAS_NEXT
+-                // We can steal all tasks till the end of the block.
+-                advance = (BLOCK_CAP - offset).min(limit)
+-            } else {
+-                val len = ((tail - head) shr SHIFT).toInt()
+-                // Steal half of the available tasks.
+-                advance = ((len + 1) / 2).min(limit)
+-            }
+-        } else {
+-            // We can steal all tasks till the end of the block.
+-            advance = (BLOCK_CAP - offset).min(limit)
+-        }
+-        newHead += (advance.toInt()) shl SHIFT
+-        val newOffset = offset + advance
+-        // Try moving the head index forward.
+-        if (this.head.index.compareExchangeWeak(head, newHead, Ordering.SeqCst, Ordering.Acquire).isErr()) {
+-            return Steal.Retry
+-        }
+-        // Reserve capacity for the stolen batch.
+-        val batchSize = newOffset - offset - 1
+-        dest.reserve(batchSize)
+-        // Get the destination buffer and back index.
+-        val destBuffer = dest.buffer.get()
+-        val destB = dest.inner.back.load(Ordering.Relaxed)
+-        return run {
+-            // If we've reached the end of the block, move to the next one.
+-            if (newOffset == BLOCK_CAP) {
+-                val next = block.waitNext()
+-                var nextIndex = (newHead and HAS_NEXT.inv()).wrappingAdd(1 shl SHIFT)
+-                if (!(next.next.load(Ordering.Relaxed) == null)) {
+-                    nextIndex = nextIndex or HAS_NEXT
+-                }
+-                this.head.block.store(next, Ordering.Release)
+-                this.head.index.store(nextIndex, Ordering.Release)
+-            }
+-            // Read the task.
+-            val slot = block.slots.getUnchecked(offset)
+-            slot.waitWrite()
+-            val task = slot.task.get()
+-            when (dest.flavor) {
+-                Flavor.Fifo -> {
+-                    // Copy values from the injector into the destination queue.
+-                    for (i in 0 until batchSize) {
+-                        // Read the task.
+-                        val slot1 = block.slots.getUnchecked(offset + i + 1)
+-                        slot1.waitWrite()
+-                        val task1 = slot1.task.get()
+-                        // Write it into the destination queue.
+-                        destBuffer.write(destB.wrappingAdd(i.toInt()), task1)
+-                    }
+-                }
+-                Flavor.Lifo -> {
+-                    // Copy values from the injector into the destination queue.
+-                    for (i1 in 0 until batchSize) {
+-                        // Read the task.
+-                        val slot2 = block.slots.getUnchecked(offset + i1 + 1)
+-                        slot2.waitWrite()
+-                        val task2 = slot2.task.get()
+-                        // Write it into the destination queue.
+-                        destBuffer.write(destB.wrappingAdd((batchSize - 1 - i1).toInt()), task2)
+-                    }
+-                }
+-            }
+-            // ThreadSanitizer does not understand fences, so we omit fence and do store with Release ordering.
+-            atomic.fence(Ordering.Release)
+-            val storeOrder = if (false) {
+-                Ordering.Release
+-            } else {
+-                Ordering.Relaxed
+-            }
+-            // Update the back index in the destination queue.
+-            dest.inner.back.store(destB.wrappingAdd(batchSize.toInt()), storeOrder)
+-            // Destroy the block if we've reached the end, or if another thread wanted to destroy
+-            // but couldn't because we were busy reading from the slot.
+-            if (newOffset == BLOCK_CAP) {
+-                Block.destroy(block, offset)
+-            } else {
+-                for (i2 in offset until newOffset) {
+-                    val slot3 = block.slots.getUnchecked(i2)
+-                    if (slot3.state.fetchOr(READ, Ordering.AcqRel) and DESTROY != 0) {
+-                        Block.destroy(block, offset)
+-                        break
+-                    }
+-                }
+-            }
+-            Steal.Success(task.assumeInit())
+-        }
+-    }
+-
+-    /**
+-     * Returns `true` if the queue is empty.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.Injector
+-     *
+-     * val q = Injector.new()
+-     * check(q.isEmpty())
+-     * q.push(1)
+-     * check(!q.isEmpty())
+-     * ```
+-     */
+-    public fun isEmpty(): Boolean {
+-        val head = this.head.index.load(Ordering.SeqCst)
+-        val tail = this.tail.index.load(Ordering.SeqCst)
+-        return head shr SHIFT == tail shr SHIFT
+-    }
+-
+-    /**
+-     * Returns the number of tasks in the queue.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.Injector
+-     *
+-     * val q = Injector.new()
+-     * check(q.len() == 0)
+-     * q.push(1)
+-     * check(q.len() == 1)
+-     * q.push(1)
+-     * check(q.len() == 2)
+-     * ```
+-     */
+-    public fun len(): Int {
+-        while (true) {
+-            // Load the tail index, then load the head index.
+-            var tail = this.tail.index.load(Ordering.SeqCst)
+-            var head = this.head.index.load(Ordering.SeqCst)
+-            // If the tail index didn't change, we've got consistent indices to work with.
+-            if (this.tail.index.load(Ordering.SeqCst) == tail) {
+-                // Erase the lower bits.
+-                tail = tail and ((1 shl SHIFT) - 1).inv()
+-                head = head and ((1 shl SHIFT) - 1).inv()
+-                // Fix up indices if they fall onto block ends.
+-                if ((tail shr SHIFT) and (LAP - 1) == LAP - 1) {
+-                    tail = tail.wrappingAdd(1 shl SHIFT)
+-                }
+-                if ((head shr SHIFT) and (LAP - 1) == LAP - 1) {
+-                    head = head.wrappingAdd(1 shl SHIFT)
+-                }
+-                // Rotate indices so that head falls into the first block.
+-                val lap = (head shr SHIFT) / LAP
+-                tail = tail.wrappingSub((lap * LAP) shl SHIFT)
+-                head = head.wrappingSub((lap * LAP) shl SHIFT)
+-                // Remove the lower bits.
+-                tail = tail shr SHIFT
+-                head = head shr SHIFT
+-                // Return the difference minus the number of blocks between tail and head.
+-                return (tail - head - tail / LAP)
+-            }
+-        }
+-    }
+-
+-    public fun drop() {
+-        var head = this.head.index.getMut()
+-        var tail = this.tail.index.getMut()
+-        var block = this.head.block.getMut()
+-        // Erase the lower bits.
+-        head = head and ((1 shl SHIFT) - 1).inv()
+-        tail = tail and ((1 shl SHIFT) - 1).inv()
+-        run {
+-            // Drop all values between `head` and `tail` and deallocate the heap-allocated blocks.
+-            while (head != tail) {
+-                val offset = ((head shr SHIFT) % LAP)
+-                if (offset < BLOCK_CAP) {
+-                    // Drop the task in the slot.
+-                    val slot = block.slots.getUnchecked(offset)
+-                    slot.task.get().assumeInitDrop()
+-                } else {
+-                    // Deallocate the block and move to the next one.
+-                    val next = block.next.getMut()
+-                    drop(Box.fromRaw(block))
+-                    block = next
+-                }
+-                head = head.wrappingAdd(1 shl SHIFT)
+-            }
+-            // Deallocate the last remaining block.
+-            drop(Box.fromRaw(block))
+-        }
+-    }
+-
+-    public fun fmt(f: StringBuilder) {
+-        f.append("Injector { .. }")
+-    }
+-
+-    public companion object {
+-        /**
+-         * Creates a new injector queue.
+-         *
+-         * # Examples
+-         *
+-         * ```kotlin
+-         * import crossbeamdeque.Injector
+-         *
+-         * val q = Injector.new()
+-         * ```
+-         */
+-        public fun <T> new(): Injector<T> {
+-            return Injector.default()
+-        }
+-    }
+-}
+-
+-/**
+- * Possible outcomes of a steal operation.
+- *
+- * # Examples
+- *
+- * There are lots of ways to chain results of steal operations together:
+- *
+- * ```kotlin
+- * import crossbeamdeque.Steal
+- * import crossbeamdeque.steal.Empty
+- * import crossbeamdeque.steal.Retry
+- * import crossbeamdeque.steal.Success
+- *
+- * val collect = { v: List<Steal<Int>> -> v.intoIter().collect<Steal<Int>>() }
+- * check(collect(mutableListOf(Empty, Empty, Empty)) == Empty)
+- * check(collect(mutableListOf(Empty, Retry, Empty)) == Retry)
+- * check(collect(mutableListOf(Retry, Success(1), Empty)) == Success(1))
+- * check(collect(mutableListOf(Empty, Empty)).orElse({ Retry }) == Retry)
+- * check(collect(mutableListOf(Retry, Empty)).orElse({ Success(1) }) == Success(1))
+- * ```
+- */
+-public sealed class Steal<T> {
+-    /**
+-     * The queue was empty at the time of stealing.
+-     */
+-    public class Empty<T>() : Steal<T>()
+-    /**
+-     * At least one task was successfully stolen.
+-     */
+-    public data class Success<T>(public var value: T) : Steal<T>()
+-    /**
+-     * The steal operation needs to be retried.
+-     */
+-    public class Retry<T>() : Steal<T>()
+-
+-    /**
+-     * Returns `true` if the queue was empty at the time of stealing.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.steal.Empty
+-     * import crossbeamdeque.steal.Retry
+-     * import crossbeamdeque.steal.Success
+-     *
+-     * check(!Success(7).isEmpty())
+-     * check(!Retry.isEmpty())
+-     * check(Empty.isEmpty())
+-     * ```
+-     */
+-    public fun isEmpty(): Boolean {
+-        return when (this) {
+-            Steal.Empty -> true
+-            else -> false
+-        }
+-    }
+-
+-    /**
+-     * Returns `true` if at least one task was stolen.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.steal.Empty
+-     * import crossbeamdeque.steal.Retry
+-     * import crossbeamdeque.steal.Success
+-     *
+-     * check(!Empty.isSuccess())
+-     * check(!Retry.isSuccess())
+-     * check(Success(7).isSuccess())
+-     * ```
+-     */
+-    public fun isSuccess(): Boolean {
+-        return when (this) {
+-            is Steal.Success -> true
+-            else -> false
+-        }
+-    }
+-
+-    /**
+-     * Returns `true` if the steal operation needs to be retried.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.steal.Empty
+-     * import crossbeamdeque.steal.Retry
+-     * import crossbeamdeque.steal.Success
+-     *
+-     * check(!Empty.isRetry())
+-     * check(!Success(7).isRetry())
+-     * check(Retry.isRetry())
+-     * ```
+-     */
+-    public fun isRetry(): Boolean {
+-        return when (this) {
+-            Steal.Retry -> true
+-            else -> false
+-        }
+-    }
+-
+-    /**
+-     * Returns the result of the operation, if successful.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.steal.Empty
+-     * import crossbeamdeque.steal.Retry
+-     * import crossbeamdeque.steal.Success
+-     *
+-     * check(Empty.success() == null)
+-     * check(Retry.success() == null)
+-     * check(Success(7).success() == 7)
+-     * ```
+-     */
+-    public fun success(): T? {
+-        return when (this) {
+-            is Steal.Success -> {
+-                val (res) = this
+-                res
+-            }
+-            else -> null
+-        }
+-    }
+-
+-    /**
+-     * If no task was stolen, attempts another steal operation.
+-     *
+-     * Returns this steal result if it is `Success`. Otherwise, closure `f` is invoked and then:
+-     *
+-     * * If the second steal resulted in `Success`, it is returned.
+-     * * If both steals were unsuccessful but any resulted in `Retry`, then `Retry` is returned.
+-     * * If both resulted in `None`, then `None` is returned.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamdeque.steal.Empty
+-     * import crossbeamdeque.steal.Retry
+-     * import crossbeamdeque.steal.Success
+-     *
+-     * check(Success(1).orElse({ Success(2) }) == Success(1))
+-     * check(Retry.orElse({ Success(2) }) == Success(2))
+-     * check(Retry.orElse({ Empty }) == Retry)
+-     * check(Empty.orElse({ Retry }) == Retry)
+-     * check(Empty.orElse({ Empty }) == Empty)
+-     * ```
+-     */
+-    public fun orElse(f: () -> Steal<T>): Steal<T> {
+-        return when (this) {
+-            Steal.Empty -> f()
+-            is Steal.Success -> this
+-            Steal.Retry -> {
+-                when (val matchVal = f()) {
+-                    is Steal.Success -> {
+-                        val (res) = matchVal
+-                        Steal.Success(res)
+-                    }
+-                    else -> {
+-                        Steal.Retry
+-                    }
+-                }
+-            }
+-        }
+-    }
+-
+-    public fun fmt(f: StringBuilder) {
+-        when (this) {
+-            Steal.Empty -> f.append("Empty")
+-            is Steal.Success -> f.append("Success(..)")
+-            Steal.Retry -> f.append("Retry")
+-        }
+-    }
+-
+-    public companion object {
+-        /**
+-         * Consumes items until a `Success` is found and returns it.
+-         *
+-         * If no `Success` was found, but there was at least one `Retry`, then returns `Retry`.
+-         * Otherwise, `Empty` is returned.
+-         */
+-        public fun <T, I> fromIter(iter: I): Steal<T> where I : Iterable<Steal<T>> {
+-            var retry = false
+-            for (s in iter) {
+-                when (s) {
+-                    Steal.Empty -> {}
+-                    is Steal.Success -> { return s }
+-                    Steal.Retry -> retry = true
+-                }
+-            }
+-            return if (retry) {
+-                Steal.Retry
+-            } else {
+-                Steal.Empty
+-            }
+-        }
+-    }
+-}

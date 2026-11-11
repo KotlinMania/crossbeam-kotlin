@@ -1,0 +1,49 @@
+--- native-kexe-emission:src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/QueueInlineTests.kt
++++ src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/QueueInlineTests.kt
+@@ -1,9 +1,7 @@
+ // port-lint: tests crossbeam-epoch/src/sync/queue.rs
+ package io.github.kotlinmania.crossbeam.epoch.sync.queue
+ 
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamchannel.tests.after.recv
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.default.pin
+-import io.github.kotlinmania.crossbeam.utils.thread
++import io.github.kotlinmania.crossbeam.epoch.default.pin
+ 
+ // Michael-Scott lock-free queue.
+ //
+@@ -127,7 +125,7 @@
+ public fun push_try_pop_many_spsc() {
+     val q: Queue<Long> = Queue.new()
+     check(q.is_empty())
+-    thread.scope({ scope ->
++    io.github.kotlinmania.crossbeam.utils.thread.scope({ scope ->
+         scope.spawn({
+             var next = 0
+             while (next < CONC_COUNT) {
+@@ -167,7 +165,7 @@
+     }
+     val q: Queue<Long> = Queue.new()
+     check(q.is_empty())
+-    thread.scope({ scope ->
++    io.github.kotlinmania.crossbeam.utils.thread.scope({ scope ->
+         for (i in 0 until 3) {
+             val q1 = q
+             scope.spawn({ recv(i, q1) })
+@@ -188,7 +186,7 @@
+     }
+     val q: Queue<LR> = Queue.new()
+     check(q.is_empty())
+-    thread.scope({ scope ->
++    io.github.kotlinmania.crossbeam.utils.thread.scope({ scope ->
+         for (_t in 0 until 2) {
+             scope.spawn({
+                 for (i in CONC_COUNT - 1L until CONC_COUNT) {
+@@ -230,7 +228,7 @@
+ @kotlin.test.Test
+ public fun push_pop_many_spsc() {
+     val q: Queue<Long> = Queue.new()
+-    thread.scope({ scope ->
++    io.github.kotlinmania.crossbeam.utils.thread.scope({ scope ->
+         scope.spawn({
+             var next = 0
+             while (next < CONC_COUNT) {

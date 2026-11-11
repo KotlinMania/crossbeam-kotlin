@@ -1,0 +1,166 @@
+--- build/verification/regenerated-kexe/utils/src/atomic/seq_lock.kt
++++ src/common/seqLock64Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLock.kt
+@@ -1,104 +1,93 @@
+ // port-lint: source crossbeam-utils/src/atomic/seq_lock.rs
+-package io.github.kotlinmania.crossbeam.utils.atomic.seqlock.seqlock
++@file:OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
+ 
+-import io.github.kotlinmania.crossbeam.crossbeamutils.src.backoff.Backoff
++package io.github.kotlinmania.crossbeam.utils.atomic.seqlock
++
++import io.github.kotlinmania.crossbeam.utils.backoff.Backoff
++import kotlin.concurrent.atomics.AtomicInt
++import kotlin.concurrent.atomics.AtomicLong
+ 
+ /**
+- * A simple stamped lock.
++ * A simple stamped lock for 64-bit targets.
++ *
++ * Kotlin atomic operations strengthen Rust's acquire/release orderings. Signed [Long] values
++ * retain all 64 bits of Rust's `usize`; arithmetic wraps modulo 2^64 and stamps are only compared
++ * for equality. No pointer layout or raw-memory representation is assumed.
+  */
+-internal data class SeqLock(
++internal actual class SeqLock actual constructor() {
+     /**
+      * The current state of the lock.
+      *
+      * All bits except the least significant one hold the current stamp. When locked, the state
+      * equals 1 and doesn't contain a valid stamp.
+      */
+-    public var state: AtomicUsize = AtomicUsize(),
+-) {
++    internal val state = AtomicLong(0L)
++
+     /**
+      * If not locked, returns the current stamp.
+      *
+      * This method should be called before optimistic reads.
+      */
+-    internal fun optimisticRead(): Int? {
+-        val state = this.state.load(Ordering.Acquire)
+-        return if (state == 1) {
+-            null
+-        } else {
+-            state
+-        }
++    actual fun optimisticRead(): SeqLockStamp? {
++        val state = this.state.load()
++        return if (state == 1L) null else SeqLockStamp(state)
+     }
+ 
+     /**
+-     * Returns `true` if the current stamp is equal to `stamp`.
++     * Returns `true` if the current stamp is equal to [stamp].
+      *
+      * This method should be called after optimistic reads to check whether they are valid. The
+-     * argument `stamp` should correspond to the one returned by method `optimisticRead`.
++     * argument [stamp] should correspond to the one returned by [optimisticRead].
+      */
+-    internal fun validateRead(stamp: Int): Boolean {
+-        atomic.fence(Ordering.Acquire)
+-        return this.state.load(Ordering.Relaxed) == stamp
++    actual fun validateRead(stamp: SeqLockStamp): Boolean {
++        // The original acquire fence must also keep earlier optimistic data reads before this
++        // validation. A plain acquire load alone would not do that. This unchanged-value atomic
++        // read-modify-write supplies both release and acquire ordering without changing the stamp.
++        return state.fetchAndAdd(0L) == stamp.value
+     }
+ 
+-    /**
+-     * Grabs the lock for writing.
+-     */
+-    internal fun write(): SeqLockWriteGuard {
+-        val backoff = Backoff.new()
++    /** Grabs the lock for writing. */
++    actual fun write(): SeqLockWriteGuard {
++        val backoff = Backoff()
+         while (true) {
+-            val previous = this.state.swap(1, Ordering.Acquire)
+-            if (previous != 1) {
+-                atomic.fence(Ordering.Release)
++            val previous = state.exchange(1L)
++            if (previous != 1L) {
++                // The sequentially consistent exchange also supplies the original release fence.
+                 return SeqLockWriteGuard(lock = this, state = previous)
+             }
+             backoff.snooze()
+         }
+     }
++}
+ 
+-    public companion object {
+-        internal fun new(): SeqLock {
+-            return SeqLock(state = AtomicUsize.new(0))
++/** All bits of the original 64-bit `usize` stamp, represented without numeric conversion. */
++internal actual data class SeqLockStamp(
++    internal val value: Long,
++)
++
++/** A guard that releases the lock and increments the stamp when closed. */
++internal actual class SeqLockWriteGuard internal constructor(
++    /** The parent lock, retained until the guard is no longer reachable. */
++    private val lock: SeqLock,
++    /** The stamp before locking. */
++    private val state: Long,
++) : AutoCloseable {
++    // Rust consumes the guard on abort/drop. Kotlin has aliases, so only one operation may release it.
++    private val consumed = AtomicInt(0)
++
++    /** Releases the lock without incrementing the stamp. */
++    actual fun abort() {
++        check(consumed.compareAndSet(0, 1)) { "Sequence-lock write guard has already been consumed" }
++        lock.state.store(state)
++
++        // We specifically don't want close() to run the normal release, since that increments the
++        // stamp. Consuming ownership replaces mem::forget; a use block's final close is now inert.
++    }
++
++    actual override fun close() {
++        if (consumed.compareAndSet(0, 1)) {
++            // Release the lock and increment the stamp, wrapping in the 64-bit unsigned domain.
++            lock.state.store(state + 2L)
+         }
+     }
+ }
+-
+-/**
+- * An RAII guard that releases the lock and increments the stamp when dropped.
+- */
+-internal data class SeqLockWriteGuard(
+-    /**
+-     * The parent lock.
+-     */
+-    public var lock: SeqLock = SeqLock(),
+-    /**
+-     * The stamp before locking.
+-     */
+-    public var state: Int = 0,
+-) {
+-    /**
+-     * Releases the lock without incrementing the stamp.
+-     */
+-    internal fun abort() {
+-        this.lock.state.store(this.state, Ordering.Release)
+-        // We specifically don't want to call drop(), since that's
+-        // what increments the stamp.
+-        mem.forget(this)
+-    }
+-
+-    public fun drop() {
+-        // Release the lock and increment the stamp.
+-        this.lock.state.store(this.state.wrappingAdd(2), Ordering.Release)
+-    }
+-}
+-
+-@Test
+-public fun testAbort() {
+-    var LK: SeqLock = SeqLock.new()
+-    val before = LK.optimisticRead().unwrap()
+-    run {
+-        val guard = LK.write()
+-        guard.abort()
+-    }
+-    val after = LK.optimisticRead().unwrap()
+-    check(before == after)
+-}

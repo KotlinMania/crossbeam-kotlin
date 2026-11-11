@@ -1,0 +1,5 @@
+headers = stdint.h ffi_wrapper.h
+headerFilter = ffi_wrapper.h
+compilerOpts = -Isrc/native/interop/cinterop
+staticLibraries = ffi_wrapper.a
+package = io.github.kotlinmania.crossbeam.platform.cinterop

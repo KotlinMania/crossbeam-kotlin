@@ -1,0 +1,74 @@
+--- native-kexe-emission:src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Deque.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Deque.kt
+@@ -1,10 +1,10 @@
+ // port-lint: source crossbeam-deque/src/deque.rs
+ package io.github.kotlinmania.crossbeam.deque
+ 
+-import io.github.kotlinmania.crossbeam.epoch.Atomic
+-import io.github.kotlinmania.crossbeam.epoch.Owned
+-import io.github.kotlinmania.crossbeam.utils.Backoff
+-import io.github.kotlinmania.crossbeam.utils.CachePadded
++import io.github.kotlinmania.crossbeam.epoch.atomic.Atomic
++import io.github.kotlinmania.crossbeam.epoch.atomic.Owned
++import io.github.kotlinmania.crossbeam.utils.backoff.Backoff
++import io.github.kotlinmania.crossbeam.utils.cachepadded.CachePadded
+ 
+ // Ideally, we want to always use AtomicU64/AtomicI64, but since they are not available on all platforms,
+ // we only use them when they are available for now.
+@@ -135,7 +135,7 @@
+         val b = this.back.get_mut()
+         val f = this.front.get_mut()
+         run {
+-            val buffer = this.buffer.load(Ordering.Relaxed, epoch.unprotected())
++            val buffer = this.buffer.load(Ordering.Relaxed, io.github.kotlinmania.crossbeam.epoch.guard.unprotected())
+             // Go through the buffer from front to back and drop all tasks in the queue.
+             var i = f
+             while (i != b) {
+@@ -255,7 +255,7 @@
+             ptr.copy_nonoverlapping(buffer.at(i), new.at(i), 1)
+             i = (i + 1.toLong())
+         }
+-        val guard = epoch.pin()
++        val guard = io.github.kotlinmania.crossbeam.epoch.default.pin()
+         // Replace the old buffer with the new one.
+         this.buffer.replace(new)
+         val old = this.inner.buffer.swap(Owned.new(new).into_shared(guard), Ordering.Release, guard)
+@@ -605,10 +605,10 @@
+         // If the current thread is already pinned (reentrantly), we must manually issue the
+         // fence. Otherwise, the following pinning will issue the fence anyway, so we don't
+         // have to.
+-        if (epoch.is_pinned()) {
++        if (io.github.kotlinmania.crossbeam.epoch.default.is_pinned()) {
+             atomic.fence(Ordering.SeqCst)
+         }
+-        val guard = epoch.pin()
++        val guard = io.github.kotlinmania.crossbeam.epoch.default.pin()
+         // Load the back index.
+         val b = this.inner.back.load(Ordering.Acquire)
+         // Is the queue empty?
+@@ -704,10 +704,10 @@
+         // If the current thread is already pinned (reentrantly), we must manually issue the
+         // fence. Otherwise, the following pinning will issue the fence anyway, so we don't
+         // have to.
+-        if (epoch.is_pinned()) {
++        if (io.github.kotlinmania.crossbeam.epoch.default.is_pinned()) {
+             atomic.fence(Ordering.SeqCst)
+         }
+-        val guard = epoch.pin()
++        val guard = io.github.kotlinmania.crossbeam.epoch.default.pin()
+         // Load the back index.
+         val b = this.inner.back.load(Ordering.Acquire)
+         // Is the queue empty?
+@@ -903,10 +903,10 @@
+         // If the current thread is already pinned (reentrantly), we must manually issue the
+         // fence. Otherwise, the following pinning will issue the fence anyway, so we don't
+         // have to.
+-        if (epoch.is_pinned()) {
++        if (io.github.kotlinmania.crossbeam.epoch.default.is_pinned()) {
+             atomic.fence(Ordering.SeqCst)
+         }
+-        val guard = epoch.pin()
++        val guard = io.github.kotlinmania.crossbeam.epoch.default.pin()
+         // Load the back index.
+         val b = this.inner.back.load(Ordering.Acquire)
+         // Is the queue empty?

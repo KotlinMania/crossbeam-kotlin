@@ -1,0 +1,435 @@
+--- build/verification/regenerated-kexe/epoch/src/collector.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Collector.kt
+@@ -1,375 +1,70 @@
+ // port-lint: source crossbeam-epoch/src/collector.rs
+-package io.github.kotlinmania.crossbeam.epoch.collector
+-
+-import io.github.kotlinmania.crossbeam.crossbeamchannel.benchmarks.atomicring.THREADS
+-import io.github.kotlinmania.crossbeam.crossbeamepoch.src.atomic.Owned
+-import io.github.kotlinmania.crossbeam.guard.Guard
+-import io.github.kotlinmania.crossbeam.internal.Global
+-import io.github.kotlinmania.crossbeam.internal.Local
+-import io.github.kotlinmania.crossbeam.primitive.sync.Arc
+-import io.github.kotlinmania.crossbeamutils.thread
++package io.github.kotlinmania.crossbeam.epoch
+ 
+ /**
+- * An epoch-based garbage collector.
++ * An epoch-based garbage collector. Close each owned collector, local handle, and guard explicitly
++ * (usually with `use`). A handle or guard remains valid after the original collector is closed.
+  */
+-public data class Collector(internal var global: Global = Global()) {
+-    /**
+-     * Registers a new handle for the collector.
+-     */
++public class Collector internal constructor(
++    internal val global: Global,
++    private val owned: Boolean,
++) : AutoCloseable {
++    private var closed = false
++    public constructor() : this(Global(), true)
+     public fun register(): LocalHandle {
+-        return Local.register(this)
++        check(!closed) { "Collector is closed" }
++        global.retain()
++        val local = Local(global)
++        global.locals.insert(local.entry, unprotected())
++        return LocalHandle(local)
+     }
+ 
+-    /**
+-     * Creates another reference to the same garbage collector.
+-     */
+-    public fun clone(): Collector {
+-        return Collector(global = this.global.clone())
++    /** Creates another independently closeable reference to the same collector. */
++    public fun copy(): Collector {
++        check(!closed) { "Collector is closed" }
++        global.retain()
++        return Collector(global, true)
++    }
++    override fun close() {
++        if (owned && !closed) {
++            closed = true
++            global.release()
++        }
++    }
++    override fun equals(other: Any?): Boolean = other is Collector && global === other.global
++    override fun hashCode(): Int = global.hashCode()
++    override fun toString(): String = "Collector { .. }"
++}
++
++/** A thread-affine participant. Closing it does not invalidate guards still keeping it pinned. */
++public class LocalHandle internal constructor(
++    internal val local: Local,
++) : AutoCloseable {
++    private var closed = false
++    private fun checkOpen() {
++        local.checkThread()
++        check(!closed) { "LocalHandle is closed" }
++    }
++    public fun pin(): Guard {
++        checkOpen()
++        return local.pin()
++    }
++    public fun isPinned(): Boolean {
++        checkOpen()
++        return local.guardCount > 0
+     }
+ 
+-    public fun fmt(f: StringBuilder) {
+-        f.append("Collector { .. }")
++    /** Borrowed collector view; closing this view does not release the local handle's ownership. */
++    public fun collector(): Collector {
++        checkOpen()
++        return Collector(local.global, false)
+     }
+-
+-    /**
+-     * Checks if both handles point to the same collector.
+-     */
+-    public fun eq(rhs: Collector): Boolean {
+-        return Arc.ptrEq(this.global, rhs.global)
+-    }
+-
+-    public companion object {
+-        /**
+-         * Creates a new collector.
+-         */
+-        public fun new(): Collector {
+-            return Collector.default()
++    override fun close() {
++        local.checkThread()
++        if (!closed) {
++            closed = true
++            local.releaseHandle()
+         }
+     }
++    override fun toString(): String = "LocalHandle { .. }"
+ }
+-
+-/**
+- * A handle to a garbage collector.
+- */
+-public data class LocalHandle(internal var local: Local? = null) {
+-    /**
+-     * Pins the handle.
+-     */
+-    public fun pin(): Guard {
+-        return this.local!!.pin()
+-    }
+-
+-    /**
+-     * Returns `true` if the handle is pinned.
+-     */
+-    public fun isPinned(): Boolean {
+-        return this.local!!.isPinned()
+-    }
+-
+-    /**
+-     * Returns the `Collector` associated with this handle.
+-     */
+-    public fun collector(): Collector {
+-        return this.local!!.collector()
+-    }
+-
+-    public fun drop() {
+-        run {
+-            Local.releaseHandle(this.local!!)
+-        }
+-    }
+-
+-    public fun fmt(f: StringBuilder) {
+-        f.append("LocalHandle { .. }")
+-    }
+-}
+-
+-public val NUM_THREADS: Int = 8
+-
+-@Test
+-public fun pinReentrant() {
+-    val collector = Collector.new()
+-    val handle = collector.register()
+-    drop(collector)
+-    check(!handle.isPinned())
+-    run {
+-        val guard = handle.pin()
+-        check(handle.isPinned())
+-        run {
+-            val guard1 = handle.pin()
+-            check(handle.isPinned())
+-        }
+-        check(handle.isPinned())
+-    }
+-    check(!handle.isPinned())
+-}
+-
+-@Test
+-public fun flushLocalBag() {
+-    val collector = Collector.new()
+-    val handle = collector.register()
+-    drop(collector)
+-    for (unused in 0 until 100) {
+-        val guard = handle.pin()
+-        run {
+-            val a = Owned.new(7).intoShared(guard)
+-            guard.deferDestroy(a)
+-            check(!guard.local!!.bag.with({ b -> b.isEmpty() }))
+-            while (!guard.local!!.bag.with({ b -> b.isEmpty() })) {
+-                guard.flush()
+-            }
+-        }
+-    }
+-}
+-
+-@Test
+-public fun garbageBuffering() {
+-    val collector = Collector.new()
+-    val handle = collector.register()
+-    drop(collector)
+-    val guard = handle.pin()
+-    run {
+-        for (unused in 0 until 10) {
+-            val a = Owned.new(7).intoShared(guard)
+-            guard.deferDestroy(a)
+-        }
+-        check(!guard.local!!.bag.with({ b -> b.isEmpty() }))
+-    }
+-}
+-
+-@Test
+-public fun pinHoldsAdvance() {
+-    val N: Int = 500000
+-    val collector = Collector.new()
+-    thread.scope({ scope ->
+-        for (unused in 0 until NUM_THREADS) {
+-            scope.spawn({
+-                val handle = collector.register()
+-                for (unused1 in 0 until N) {
+-                    val guard = handle.pin()
+-                    val before = collector.global.epoch.load(Ordering.Relaxed)
+-                    collector.global.collect(guard)
+-                    val after = collector.global.epoch.load(Ordering.Relaxed)
+-                    check(after.wrappingSub(before) <= 2)
+-                }
+-            })
+-        }
+-    }).unwrap()
+-}
+-
+-// Note: assertions failed due to `cfg(crossbeamSanitize)` reduce `internal.MAX_OBJECTS`
+-@Test
+-public fun incremental() {
+-    val COUNT: Int = 100000
+-    var DESTROYS: AtomicUsize = AtomicUsize.new(0)
+-    val collector = Collector.new()
+-    val handle = collector.register()
+-    run {
+-        val guard = handle.pin()
+-        for (unused in 0 until COUNT) {
+-            val a = Owned.new(7).intoShared(guard)
+-            guard.deferUnchecked({
+-                drop(a.intoOwned())
+-                DESTROYS.fetchAdd(1, Ordering.Relaxed)
+-            })
+-        }
+-        guard.flush()
+-    }
+-    var last = 0
+-    while (last < COUNT) {
+-        val curr = DESTROYS.load(Ordering.Relaxed)
+-        check(curr - last <= 1024)
+-        last = curr
+-        val guard1 = handle.pin()
+-        collector.global.collect(guard1)
+-    }
+-    check(DESTROYS.load(Ordering.Relaxed) == COUNT)
+-}
+-
+-@Test
+-public fun buffering() {
+-    val COUNT: Int = 10
+-    val N: Int = 100000
+-    var DESTROYS: AtomicUsize = AtomicUsize.new(0)
+-    val collector = Collector.new()
+-    val handle = collector.register()
+-    run {
+-        val guard = handle.pin()
+-        for (unused in 0 until COUNT) {
+-            val a = Owned.new(7).intoShared(guard)
+-            guard.deferUnchecked({
+-                drop(a.intoOwned())
+-                DESTROYS.fetchAdd(1, Ordering.Relaxed)
+-            })
+-        }
+-    }
+-    for (unused1 in 0 until N) {
+-        collector.global.collect(handle.pin())
+-    }
+-    check(DESTROYS.load(Ordering.Relaxed) < COUNT)
+-    handle.pin().flush()
+-    while (DESTROYS.load(Ordering.Relaxed) < COUNT) {
+-        val guard1 = handle.pin()
+-        collector.global.collect(guard1)
+-    }
+-    check(DESTROYS.load(Ordering.Relaxed) == COUNT)
+-}
+-
+-@Test
+-public fun countDrops() {
+-    val COUNT: Int = 100000
+-    var DROPS: AtomicUsize = AtomicUsize.new(0)
+-    data class Elem(public var value: Int = 0) {
+-        public var field0: Int
+-            get() = value
+-            set(v) {
+-                value = v
+-            }
+-
+-        public fun drop() {
+-            DROPS.fetchAdd(1, Ordering.Relaxed)
+-        }
+-    }
+-    val collector = Collector.new()
+-    val handle = collector.register()
+-    run {
+-        val guard = handle.pin()
+-        for (unused in 0 until COUNT) {
+-            val a = Owned.new(Elem(7)).intoShared(guard)
+-            guard.deferDestroy(a)
+-        }
+-        guard.flush()
+-    }
+-    while (DROPS.load(Ordering.Relaxed) < COUNT) {
+-        val guard1 = handle.pin()
+-        collector.global.collect(guard1)
+-    }
+-    check(DROPS.load(Ordering.Relaxed) == COUNT)
+-}
+-
+-@Test
+-public fun countDestroy() {
+-    val COUNT: Int = 100000
+-    var DESTROYS: AtomicUsize = AtomicUsize.new(0)
+-    val collector = Collector.new()
+-    val handle = collector.register()
+-    run {
+-        val guard = handle.pin()
+-        for (unused in 0 until COUNT) {
+-            val a = Owned.new(7).intoShared(guard)
+-            guard.deferUnchecked({
+-                drop(a.intoOwned())
+-                DESTROYS.fetchAdd(1, Ordering.Relaxed)
+-            })
+-        }
+-        guard.flush()
+-    }
+-    while (DESTROYS.load(Ordering.Relaxed) < COUNT) {
+-        val guard1 = handle.pin()
+-        collector.global.collect(guard1)
+-    }
+-    check(DESTROYS.load(Ordering.Relaxed) == COUNT)
+-}
+-
+-@Test
+-public fun dropArray() {
+-    val COUNT: Int = 700
+-    var DROPS: AtomicUsize = AtomicUsize.new(0)
+-    data class Elem(public var value: Int = 0) {
+-        public var field0: Int
+-            get() = value
+-            set(v) {
+-                value = v
+-            }
+-
+-        public fun drop() {
+-            DROPS.fetchAdd(1, Ordering.Relaxed)
+-        }
+-    }
+-    val collector = Collector.new()
+-    val handle = collector.register()
+-    var guard = handle.pin()
+-    var v = ArrayList(COUNT)
+-    for (i in 0 until COUNT) {
+-        v.add(Elem(i.toInt()))
+-    }
+-    run {
+-        val a = Owned.new(v).intoShared(guard)
+-        run {
+-            guard.deferDestroy(a)
+-        }
+-        guard.flush()
+-    }
+-    while (DROPS.load(Ordering.Relaxed) < COUNT) {
+-        guard.repin()
+-        collector.global.collect(guard)
+-    }
+-    check(DROPS.load(Ordering.Relaxed) == COUNT)
+-}
+-
+-@Test
+-public fun destroyArray() {
+-    val COUNT: Int = 100000
+-    var DESTROYS: AtomicUsize = AtomicUsize.new(0)
+-    val collector = Collector.new()
+-    val handle = collector.register()
+-    run {
+-        val guard = handle.pin()
+-        var v = ArrayList(COUNT)
+-        for (i in 0 until COUNT) {
+-            v.add(i.toInt())
+-        }
+-        val len = v.size
+-        val cap = v.capacity()
+-        val ptr = v
+-        guard.deferUnchecked({
+-            drop(Vec.fromRawParts(ptr, len, cap))
+-            DESTROYS.fetchAdd(len, Ordering.Relaxed)
+-        })
+-        guard.flush()
+-    }
+-    while (DESTROYS.load(Ordering.Relaxed) < COUNT) {
+-        val guard1 = handle.pin()
+-        collector.global.collect(guard1)
+-    }
+-    check(DESTROYS.load(Ordering.Relaxed) == COUNT)
+-}
+-
+-@Test
+-public fun stress() {
+-    val THREADS: Int = 8
+-    val COUNT: Int = 100000
+-    var DROPS: AtomicUsize = AtomicUsize.new(0)
+-    data class Elem(public var value: Int = 0) {
+-        public var field0: Int
+-            get() = value
+-            set(v) {
+-                value = v
+-            }
+-
+-        public fun drop() {
+-            DROPS.fetchAdd(1, Ordering.Relaxed)
+-        }
+-    }
+-    val collector = Collector.new()
+-    thread.scope({ scope ->
+-        for (unused in 0 until THREADS) {
+-            scope.spawn({
+-                val handle = collector.register()
+-                for (unused1 in 0 until COUNT) {
+-                    val guard = handle.pin()
+-                    run {
+-                        val a = Owned.new(Elem(7)).intoShared(guard)
+-                        guard.deferDestroy(a)
+-                    }
+-                }
+-            })
+-        }
+-    }).unwrap()
+-    val handle = collector.register()
+-    while (DROPS.load(Ordering.Relaxed) < COUNT * THREADS) {
+-        val guard = handle.pin()
+-        collector.global.collect(guard)
+-    }
+-    check(DROPS.load(Ordering.Relaxed) == COUNT * THREADS)
+-}

@@ -1,0 +1,194 @@
+[
+  {
+    "module": "backoff",
+    "emitted": "build/verification/regenerated-kexe/backoff/Backoff.kt",
+    "emission_exists": true,
+    "adopted": [
+      "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/backoff/Backoff.kt"
+    ],
+    "emitted_sha256": "ac011f9dc1ff795faecc58099ea23603fcefcd7eccd303762294ab0f524117ad",
+    "emitted_lines": 284,
+    "adopted_lines": 170,
+    "exact_match": false,
+    "diff": "verification/crossbeam-port/regeneration/backoff-emitted-vs-adopted.patch",
+    "phase": "Historical pre-reset emission-versus-manual comparison. Manual implementations were subsequently deleted; current actual adoption is in redo-adoption.json.",
+    "current_adoption": "verification/crossbeam-port/regeneration/backoff-adoption.json"
+  },
+  {
+    "module": "seq-lock64",
+    "emitted": "build/verification/regenerated-kexe/utils/src/atomic/seq_lock.kt",
+    "emission_exists": true,
+    "adopted": [
+      "src/common/seqLock64Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLock.kt"
+    ],
+    "emitted_sha256": "316815abd3cd5e5d07e5e0e88a4cd67a6b5ae5f8342a115d4855e1a1abf2994e",
+    "emitted_lines": 104,
+    "adopted_lines": 93,
+    "exact_match": false,
+    "diff": "verification/crossbeam-port/regeneration/seq-lock64-emitted-vs-adopted.patch",
+    "phase": "Historical pre-reset emission-versus-manual comparison. Manual implementations were subsequently deleted; current actual adoption is in redo-adoption.json."
+  },
+  {
+    "module": "seq-lock32",
+    "emitted": "build/verification/regenerated-kexe/utils32/SeqLockWide.kt",
+    "emission_exists": true,
+    "adopted": [
+      "src/common/seqLock32Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLockWide.kt"
+    ],
+    "emitted_sha256": "3b29f03c330ab6465f32d7f0c478a1ac50eda2c9fbeebaa299f5296e13563363",
+    "emitted_lines": 143,
+    "adopted_lines": 130,
+    "exact_match": false,
+    "diff": "verification/crossbeam-port/regeneration/seq-lock32-emitted-vs-adopted.patch",
+    "phase": "Historical pre-reset emission-versus-manual comparison. Manual implementations were subsequently deleted; current actual adoption is in redo-adoption.json."
+  },
+  {
+    "module": "wait-group",
+    "emitted": "build/verification/regenerated-kexe/utils/src/sync/wait_group.kt",
+    "emission_exists": true,
+    "adopted": [
+      "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroup.kt"
+    ],
+    "emitted_sha256": "689a0391f7e4f5f68f8dd5af942742844bc74b567604572989375019c38c49ef",
+    "emitted_lines": 156,
+    "adopted_lines": 181,
+    "exact_match": false,
+    "diff": "verification/crossbeam-port/regeneration/wait-group-emitted-vs-adopted.patch",
+    "phase": "Historical pre-reset emission-versus-manual comparison. Manual implementations were subsequently deleted; current actual adoption is in redo-adoption.json."
+  },
+  {
+    "module": "deque",
+    "emitted": "build/verification/regenerated-kexe/deque/src/deque.kt",
+    "emission_exists": true,
+    "adopted": [
+      "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Injector.kt",
+      "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Steal.kt",
+      "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Worker.kt",
+      "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Stealer.kt"
+    ],
+    "emitted_sha256": "40733dec9a197ff8e6715aa7dc2c7f9aa380fec0812528f3520195008437c628",
+    "emitted_lines": 2011,
+    "adopted_lines": 1530,
+    "exact_match": false,
+    "diff": "verification/crossbeam-port/regeneration/deque-emitted-vs-adopted.patch",
+    "phase": "Historical pre-reset emission-versus-manual comparison. Manual implementations were subsequently deleted; current actual adoption is in redo-adoption.json."
+  },
+  {
+    "module": "epoch-atomic",
+    "emitted": "build/verification/regenerated-kexe/epoch/src/atomic.kt",
+    "emission_exists": true,
+    "adopted": [
+      "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Atomic.kt"
+    ],
+    "emitted_sha256": "9b23fe167ab1801ef64306ddb91bcce3e63492ff07d840d1715ecdac4c2bb492",
+    "emitted_lines": 1592,
+    "adopted_lines": 300,
+    "exact_match": false,
+    "diff": "verification/crossbeam-port/regeneration/epoch-atomic-emitted-vs-adopted.patch",
+    "phase": "Historical pre-reset emission-versus-manual comparison. Manual implementations were subsequently deleted; current actual adoption is in redo-adoption.json."
+  },
+  {
+    "module": "epoch-collector",
+    "emitted": "build/verification/regenerated-kexe/epoch/src/collector.kt",
+    "emission_exists": true,
+    "adopted": [
+      "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Collector.kt"
+    ],
+    "emitted_sha256": "0c7e00e78275a663a5b4d8de8f141edc4aeddba21d9e138f4606376d0648307c",
+    "emitted_lines": 375,
+    "adopted_lines": 70,
+    "exact_match": false,
+    "diff": "verification/crossbeam-port/regeneration/epoch-collector-emitted-vs-adopted.patch",
+    "phase": "Historical pre-reset emission-versus-manual comparison. Manual implementations were subsequently deleted; current actual adoption is in redo-adoption.json."
+  },
+  {
+    "module": "epoch-default",
+    "emitted": "build/verification/regenerated-kexe/epoch/src/default.kt",
+    "emission_exists": true,
+    "adopted": [
+      "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Default.kt"
+    ],
+    "emitted_sha256": "77bbfbafeaf9edaba4c4e750f020055e9a8166f350c65add877d0584069ee57b",
+    "emitted_lines": 69,
+    "adopted_lines": 54,
+    "exact_match": false,
+    "diff": "verification/crossbeam-port/regeneration/epoch-default-emitted-vs-adopted.patch",
+    "phase": "Historical pre-reset emission-versus-manual comparison. Manual implementations were subsequently deleted; current actual adoption is in redo-adoption.json."
+  },
+  {
+    "module": "epoch-deferred",
+    "emitted": "build/verification/regenerated-kexe/epoch/src/deferred.kt",
+    "emission_exists": true,
+    "adopted": [
+      "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Deferred.kt"
+    ],
+    "emitted_sha256": "d860ef471eda0d420f0f1bba7884cde68624784c241ef8b4dcc9c5d6f2a9fbb9",
+    "emitted_lines": 134,
+    "adopted_lines": 15,
+    "exact_match": false,
+    "diff": "verification/crossbeam-port/regeneration/epoch-deferred-emitted-vs-adopted.patch",
+    "phase": "Historical pre-reset emission-versus-manual comparison. Manual implementations were subsequently deleted; current actual adoption is in redo-adoption.json."
+  },
+  {
+    "module": "epoch-epoch",
+    "emitted": "build/verification/regenerated-kexe/epoch/src/epoch.kt",
+    "emission_exists": true,
+    "adopted": [
+      "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Epoch.kt"
+    ],
+    "emitted_sha256": "50a6da00b02b6f70f1eb8048208dd508c3cf27ad0d5047daf4307229e164902e",
+    "emitted_lines": 148,
+    "adopted_lines": 30,
+    "exact_match": false,
+    "diff": "verification/crossbeam-port/regeneration/epoch-epoch-emitted-vs-adopted.patch",
+    "phase": "Historical pre-reset emission-versus-manual comparison. Manual implementations were subsequently deleted; current actual adoption is in redo-adoption.json."
+  },
+  {
+    "module": "epoch-guard",
+    "emitted": "build/verification/regenerated-kexe/epoch/src/guard.kt",
+    "emission_exists": false,
+    "adopted": [
+      "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Guard.kt"
+    ],
+    "limit": "Translator rejected input; no fabricated replacement emission or equivalence claim.",
+    "phase": "Historical pre-reset emission-versus-manual comparison. Manual implementations were subsequently deleted; current actual adoption is in redo-adoption.json."
+  },
+  {
+    "module": "epoch-internal",
+    "emitted": "build/verification/regenerated-kexe/epoch/src/internal.kt",
+    "emission_exists": false,
+    "adopted": [
+      "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Internal.kt"
+    ],
+    "limit": "Translator rejected input; no fabricated replacement emission or equivalence claim.",
+    "phase": "Historical pre-reset emission-versus-manual comparison. Manual implementations were subsequently deleted; current actual adoption is in redo-adoption.json."
+  },
+  {
+    "module": "epoch-list",
+    "emitted": "build/verification/regenerated-kexe/epoch/src/sync/list.kt",
+    "emission_exists": true,
+    "adopted": [
+      "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/List.kt"
+    ],
+    "emitted_sha256": "aee71d4416bee74fcd8eb83be2c10ac7c8e1abb889e2fd6010d7e7c8a639c488",
+    "emitted_lines": 471,
+    "adopted_lines": 93,
+    "exact_match": false,
+    "diff": "verification/crossbeam-port/regeneration/epoch-list-emitted-vs-adopted.patch",
+    "phase": "Historical pre-reset emission-versus-manual comparison. Manual implementations were subsequently deleted; current actual adoption is in redo-adoption.json."
+  },
+  {
+    "module": "epoch-queue",
+    "emitted": "build/verification/regenerated-kexe/epoch/src/sync/queue.kt",
+    "emission_exists": true,
+    "adopted": [
+      "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Queue.kt"
+    ],
+    "emitted_sha256": "42d81296bfa3137d8d9a194b512814347cc73714dcf373c199ed6ea9f1d59a35",
+    "emitted_lines": 396,
+    "adopted_lines": 72,
+    "exact_match": false,
+    "diff": "verification/crossbeam-port/regeneration/epoch-queue-emitted-vs-adopted.patch",
+    "phase": "Historical pre-reset emission-versus-manual comparison. Manual implementations were subsequently deleted; current actual adoption is in redo-adoption.json."
+  }
+]

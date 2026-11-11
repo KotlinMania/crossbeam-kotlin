@@ -1,0 +1,11 @@
+--- build/verification/redo-emission/epoch/src/Epoch.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/epoch/Epoch.kt
+@@ -1,7 +1,7 @@
+ // port-lint: source crossbeam-epoch/src/epoch.rs
+ package io.github.kotlinmania.crossbeam.epoch.epoch
+ 
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.atomic.Atomic
++import io.github.kotlinmania.crossbeam.epoch.atomic.Atomic
+ import io.github.kotlinmania.crossbeam.epoch.primitive.sync.atomic.Ordering
+ 
+ // The global epoch

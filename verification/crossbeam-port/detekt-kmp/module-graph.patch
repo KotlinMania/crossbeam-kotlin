@@ -1,0 +1,70 @@
+--- upstream/EnvironmentAware.kt
++++ patched/EnvironmentAware.kt
+@@ -43,7 +43,7 @@
+     private val printStream = if (loggingSpec.debug) loggingSpec.errorChannel.asPrintStream() else NullPrintStream
+ 
+     // This lateinit var can be changed to val if https://github.com/JetBrains/kotlin/pull/5703 is merged
+-    private lateinit var sourceModule: KaSourceModule
++    private lateinit var sourceModules: List<KaSourceModule>
+ 
+     private val configuration: CompilerConfiguration = createCompilerConfiguration(
+         projectSpec.inputPaths.toList(),
+@@ -63,7 +63,7 @@
+ 
+     @OptIn(KaExperimentalApi::class)
+     override val ktFiles: List<KtFile>
+-        get() = sourceModule.psiRoots.filterIsInstance<KtFile>()
++        get() = sourceModules.flatMap { it.psiRoots }.filterIsInstance<KtFile>()
+ 
+     init {
+         buildStandaloneAnalysisAPISession(disposable) {
+@@ -101,8 +101,32 @@
+                     libraryName = "regularDependencies"
+                 }
+ 
+-                sourceModule = buildKtSourceModule {
+-                    addSourceRoots(configuration.kotlinSourceRoots.map { Path(it.path) })
++                // The compiler flags identify the roots of the common source module. Keep
++                // those roots separate from platform actuals and express their dependency.
++                val commonPaths = compilerSpec.freeCompilerArgs
++                    .filter { it.startsWith("-Xcommon-sources=") }
++                    .flatMap { it.substringAfter('=').split(',') }
++                    .filter { it.isNotBlank() }
++                    .map { Path(it).toAbsolutePath().normalize() }
++                    .toSet()
++                val allRoots = configuration.kotlinSourceRoots.map { Path(it.path).toAbsolutePath().normalize() }
++                val commonRoots = allRoots.filter { it in commonPaths }
++                val platformRoots = allRoots.filterNot { it in commonPaths }
++                val commonModule = if (commonRoots.isNotEmpty()) buildKtSourceModule {
++                    addSourceRoots(commonRoots)
++                    platform = targetPlatform
++                    moduleName = "common"
++                    jdk?.let { addRegularDependency(it) }
++                    friends?.let {
++                        addFriendDependency(it)
++                        addRegularDependency(it)
++                    }
++                    addRegularDependency(dependencies)
++                    languageVersionSettings = configuration.languageVersionSettings
++                } else null
++
++                val sourceModule = buildKtSourceModule {
++                    addSourceRoots(platformRoots)
+                     platform = targetPlatform
+                     moduleName = "source"
+ 
+@@ -113,11 +137,13 @@
+                         addRegularDependency(it)
+                     }
+                     addRegularDependency(dependencies)
++                    commonModule?.let { addDependsOnDependency(it) }
+ 
+                     languageVersionSettings = configuration.languageVersionSettings
+                 }
+ 
+-                addModule(sourceModule)
++                sourceModules = listOfNotNull(commonModule, sourceModule)
++                sourceModules.forEach { addModule(it) }
+             }
+         }
+     }

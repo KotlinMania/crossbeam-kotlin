@@ -1,0 +1,11 @@
+--- native-kexe-emission:src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/cachepadded/CachePadded.kt
++++ src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/cachepadded/CachePadded.kt
+@@ -1,7 +1,7 @@
+ // port-lint: tests crossbeam-utils/tests/cache_padded.rs
+ package io.github.kotlinmania.crossbeam.utils.tests.cachepadded
+ 
+-import io.github.kotlinmania.crossbeam.utils.CachePadded
++import io.github.kotlinmania.crossbeam.utils.cachepadded.CachePadded
+ 
+ @kotlin.test.Test
+ public fun default() {

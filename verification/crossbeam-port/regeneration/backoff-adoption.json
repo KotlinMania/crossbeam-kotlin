@@ -1,0 +1,100 @@
+{
+  "input": "tmp/crossbeam/crossbeam-utils/src/backoff.rs",
+  "upstream_commit": "2920c984290229ab4e0ca0452ef09e48a82063f3",
+  "generator": "../rust-kotlin/build/bin/macosArm64/releaseExecutable/rust-kotlin.kexe",
+  "generator_sha256": "c5d5e0a9246fc466a1b01e8827499cad1328c3c0ba3d788187ee4bbbb2227e74",
+  "command": [
+    "translate",
+    "--force",
+    "--split-module-roots",
+    "--feature",
+    "std",
+    "--feature",
+    "alloc",
+    "--cfg-closed-world",
+    "--target-arch",
+    "aarch64",
+    "--target-os",
+    "macos",
+    "--target-family",
+    "unix",
+    "--target-vendor",
+    "apple",
+    "--target-pointer-width",
+    "64",
+    "--package",
+    "io.github.kotlinmania.crossbeam.utils",
+    "--namespace",
+    "io.github.kotlinmania.crossbeam",
+    "--source-root",
+    "tmp/crossbeam",
+    "tmp/crossbeam/crossbeam-utils/src/backoff.rs",
+    "build/verification/regenerated-kexe/backoff/Backoff.kt"
+  ],
+  "emitted": "Current native kexe wrote directly to src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/backoff/Backoff.kt",
+  "emitted_sha256": "1b72ab127b8dde0e8f922861d0a9774e87251a05057ec87492f792e906bfad8b",
+  "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/backoff/Backoff.kt",
+  "adopted_sha256": "803c7d0bec56fa7c2ef7ae00ec4fdd5e43506c545c97e03721f0274615127d32",
+  "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Backoff-7c86c5b9c5.patch",
+  "adoption": "Copied the fresh emitted file into product source, then applied the listed narrow repairs. Not an untouched generated file or full parity certification.",
+  "repairs": [
+    "Use canonical real CPU hint and OS yielding adapters instead of unresolved primitive import.",
+    "Preserve Rust private field/constants and non-inheritable struct shape; public Kotlin no-arg construction delegates to step zero.",
+    "Represent the private non-atomic Cell<u32> scalar as UInt; do not add a fake raw Cell/address wrapper; Kotlin cannot enforce Rust non-Sync.",
+    "Repair min/range syntax and UInt literals without changing the original spin/reset/saturation algorithm.",
+    "Fix the emitted std-feature snooze branch, which incorrectly retained no_std spinning, to call the original std yield primitive.",
+    "Keep generated Debug builder, adapt its scalar step field to the original nested Cell Debug rendering and connect toString to fmt.",
+    "Retain emitted documentation and state its unavailable std-runtime/translation limitations inside KDoc, instead of replacing it with generic example callbacks.",
+    "Apply project Kotlin formatting.",
+    "Replace emitted unused-index for-loops with identical-count repeat loops after actual typed Detekt findings; no iteration-count change."
+  ],
+  "source_audit": "Independent source review found and prompted the Cell Debug repair; remaining core branch/bound behavior matches by inspection. No claim that successful first-CAS fetch_mul asserts spin/yield bounds.",
+  "validation": {
+    "log": "build/reports/crossbeam-port/regenerated-backoff-focused.log",
+    "tasks": 108,
+    "suite_counts": {
+      "macosArm64Test": {
+        "tests": 117,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "jvmTest": {
+        "tests": 94,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "jsNodeTest": {
+        "tests": 94,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "wasmJsNodeTest": {
+        "tests": 94,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "wasmWasiNodeTest": {
+        "tests": 94,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "scope": "metadata + JVM/macOS/JS Node/WasmJS Node/WASI original-derived suites + ktlint; not all-target acceptance",
+    "after_validation_change": "KDoc-only clarification after focused gate; final common-source ktlint checked separately",
+    "status_after_reset": "The old focused passing gate is historical; all other source has since been reset to emission and compilation currently fails. No current suite claim."
+  },
+  "limits": [
+    "Rust non-Sync is a documented precondition, not a Kotlin compile-time guarantee.",
+    "Retained emitted doc examples contain unresolved Rust std-runtime APIs and translation defects, so no runnable-Kotlin example parity claim.",
+    "Existing original fetch_mul successful CAS does not isolate spin/yield saturation or Debug behavior.",
+    "Browser/WasmJS cannot provide OS scheduling/event-loop progress guarantees."
+  ],
+  "historical_emission": "build/verification/regenerated-kexe/backoff/Backoff.kt",
+  "current_emission_receipt": "redo-adoption.json",
+  "current_validation": "Full reset-source metadata compile fails; no current tests executed. Earlier focused gate is historical."
+}

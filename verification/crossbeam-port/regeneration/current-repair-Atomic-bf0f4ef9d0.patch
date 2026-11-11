@@ -1,0 +1,11 @@
+--- native-kexe-emission:src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/atomic/Atomic.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/atomic/Atomic.kt
+@@ -4,7 +4,7 @@
+ import io.github.kotlinmania.crossbeam.epoch.guard.Guard
+ import io.github.kotlinmania.crossbeam.epoch.primitive.sync.atomic.AtomicUsize
+ import io.github.kotlinmania.crossbeam.epoch.primitive.sync.atomic.Ordering
+-import io.github.kotlinmania.crossbeam.utils.atomic.AtomicConsume
++import io.github.kotlinmania.crossbeam.utils.atomic.consume.AtomicConsume
+ 
+ public class DebugStruct(
+     private val out: StringBuilder,

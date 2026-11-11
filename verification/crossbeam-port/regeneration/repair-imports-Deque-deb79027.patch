@@ -1,0 +1,17 @@
+--- build/verification/redo-emission/deque/src/Deque.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Deque.kt
+@@ -1,10 +1,10 @@
+ // port-lint: source crossbeam-deque/src/deque.rs
+ package io.github.kotlinmania.crossbeam.deque
+ 
+-import io.github.kotlinmania.crossbeam.epoch.Atomic
+-import io.github.kotlinmania.crossbeam.epoch.Owned
+-import io.github.kotlinmania.crossbeam.utils.Backoff
+-import io.github.kotlinmania.crossbeam.utils.CachePadded
++import io.github.kotlinmania.crossbeam.epoch.atomic.Atomic
++import io.github.kotlinmania.crossbeam.epoch.atomic.Owned
++import io.github.kotlinmania.crossbeam.utils.backoff.Backoff
++import io.github.kotlinmania.crossbeam.utils.cachepadded.CachePadded
+ 
+ public typealias AtomicIndex = atomic.AtomicUsize
+ 

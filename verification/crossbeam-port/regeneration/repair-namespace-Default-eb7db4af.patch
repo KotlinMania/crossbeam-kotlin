@@ -1,0 +1,24 @@
+--- build/verification/redo-emission/epoch/src/Default.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/default/Default.kt
+@@ -3,11 +3,10 @@
+ 
+ import io.github.kotlinmania.crossbeam.epoch.collector.Collector
+ import io.github.kotlinmania.crossbeam.epoch.collector.LocalHandle
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.default.pin
++import io.github.kotlinmania.crossbeam.epoch.default.pin
+ import io.github.kotlinmania.crossbeam.epoch.guard.Guard
+ import io.github.kotlinmania.crossbeam.epoch.primitive.threadLocal
+ import io.github.kotlinmania.crossbeam.epoch.sync.oncelock.OnceLock
+-import io.github.kotlinmania.crossbeam.utils.thread
+ 
+ // The default garbage collector.
+ //
+@@ -59,7 +58,7 @@
+         }
+     }
+     threadLocal(FOO, Foo, Foo)
+-    thread.scope({ scope ->
++    io.github.kotlinmania.crossbeam.utils.thread.scope({ scope ->
+         scope.spawn({
+             // Initialize `FOO` and then `HANDLE`.
+             FOO.with({ Unit })

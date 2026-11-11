@@ -1,0 +1,11 @@
+--- native-kexe-emission:src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/parker/Parker.kt
++++ src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/parker/Parker.kt
+@@ -1,7 +1,7 @@
+ // port-lint: tests crossbeam-utils/tests/parker.rs
+ package io.github.kotlinmania.crossbeam.utils.tests.parker
+ 
+-import io.github.kotlinmania.crossbeam.utils.sync.Parker
++import io.github.kotlinmania.crossbeam.utils.sync.parker.Parker
+ import io.github.kotlinmania.crossbeam.utils.thread
+ 
+ @kotlin.test.Test

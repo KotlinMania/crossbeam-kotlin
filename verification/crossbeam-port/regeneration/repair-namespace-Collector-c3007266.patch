@@ -1,0 +1,35 @@
+--- build/verification/redo-emission/epoch/src/Collector.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/collector/Collector.kt
+@@ -1,13 +1,11 @@
+ // port-lint: source crossbeam-epoch/src/collector.rs
+ package io.github.kotlinmania.crossbeam.epoch.collector
+ 
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamchannel.benchmarks.atomicring.THREADS
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.atomic.Owned
++import io.github.kotlinmania.crossbeam.epoch.atomic.Owned
+ import io.github.kotlinmania.crossbeam.epoch.guard.Guard
+ import io.github.kotlinmania.crossbeam.epoch.internal.Global
+ import io.github.kotlinmania.crossbeam.epoch.internal.Local
+ import io.github.kotlinmania.crossbeam.epoch.primitive.sync.Arc
+-import io.github.kotlinmania.crossbeam.utils.thread
+ 
+ /**
+  * An epoch-based garbage collector.
+@@ -145,7 +143,7 @@
+ public fun pinHoldsAdvance() {
+     val N: Int = 500000
+     val collector = Collector.new()
+-    thread.scope({ scope ->
++    io.github.kotlinmania.crossbeam.utils.thread.scope({ scope ->
+         for (unused in 0 until NUM_THREADS) {
+             scope.spawn({
+                 val handle = collector.register()
+@@ -356,7 +354,7 @@
+         }
+     }
+     val collector = Collector.new()
+-    thread.scope({ scope ->
++    io.github.kotlinmania.crossbeam.utils.thread.scope({ scope ->
+         for (unused in 0 until THREADS) {
+             scope.spawn({
+                 val handle = collector.register()

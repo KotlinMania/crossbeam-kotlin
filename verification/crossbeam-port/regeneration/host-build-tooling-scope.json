@@ -1,0 +1,14 @@
+[
+  {
+    "source": "tmp/crossbeam/crossbeam-utils/build.rs",
+    "scope": "Cargo host-build tooling, not claimed runtime adoption; original unchanged"
+  },
+  {
+    "source": "tmp/crossbeam/crossbeam-epoch/build.rs",
+    "scope": "Cargo host-build tooling, not claimed runtime adoption; original unchanged"
+  },
+  {
+    "source": "tmp/crossbeam/crossbeam-deque/build.rs",
+    "scope": "Cargo host-build tooling, not claimed runtime adoption; original unchanged"
+  }
+]

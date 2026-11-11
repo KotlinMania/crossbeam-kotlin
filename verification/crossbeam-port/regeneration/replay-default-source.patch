@@ -1,0 +1,22 @@
+--- generated.kt
++++ repaired.kt
+@@ -13,15 +13,10 @@
+ // is registered in the default collector.  If initialized, the thread's participant will get
+ // destructed on thread exit, which in turn unregisters the thread.
+ 
+-public fun collector(): Collector {
+-    return run {
+-        /**
+-         * The global data for the default garbage collector.
+-         */
+-        var COLLECTOR: OnceLock<Collector> = OnceLock.new()
+-        COLLECTOR.get_or_init(Collector::new)
+-    }
+-}
++/** The global data for the default garbage collector. */
++private val COLLECTOR: OnceLock<Collector> = OnceLock.new()
++
++public fun collector(): Collector = COLLECTOR.get_or_init(Collector::new)
+ 
+ /**
+  * Pins the current thread.

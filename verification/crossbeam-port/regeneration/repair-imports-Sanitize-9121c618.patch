@@ -1,0 +1,17 @@
+--- build/verification/redo-emission/epoch/examples/Sanitize.kt
++++ examples/kotlin/io/github/kotlinmania/crossbeam/epoch/examples/sanitize/Sanitize.kt
+@@ -1,11 +1,11 @@
+ // port-lint: source crossbeam-epoch/examples/sanitize.rs
+ package io.github.kotlinmania.crossbeam.epoch.examples.sanitize
+ 
+-import io.github.kotlinmania.crossbeam.epoch.Atomic
++import io.github.kotlinmania.crossbeam.epoch.atomic.Atomic
+ import io.github.kotlinmania.crossbeam.epoch.Collector
+ import io.github.kotlinmania.crossbeam.epoch.LocalHandle
+-import io.github.kotlinmania.crossbeam.epoch.Owned
+-import io.github.kotlinmania.crossbeam.epoch.Shared
++import io.github.kotlinmania.crossbeam.epoch.atomic.Owned
++import io.github.kotlinmania.crossbeam.epoch.atomic.Shared
+ import io.github.kotlinmania.rand.Rng
+ 
+ public fun worker(a: Atomic<AtomicUsize>, handle: LocalHandle): Int {

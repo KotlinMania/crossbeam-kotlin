@@ -1,0 +1,40 @@
+--- build/verification/redo-emission/utils/tests/WaitGroup.kt
++++ src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/waitgroup/WaitGroup.kt
+@@ -13,7 +13,7 @@
+         val wg1 = wg.clone()
+         val tx1 = tx.clone()
+         thread.spawn({
+-            wg1.wait()
++            wg1.await()
+             tx1.send().unwrap()
+         })
+     }
+@@ -21,7 +21,7 @@
+     // At this point, all spawned threads should be blocked, so we shouldn't get anything from the
+     // channel.
+     check(rx.tryRecv().isErr())
+-    wg.wait()
++    wg.await()
+     // Now, the wait group is cleared and we should receive messages.
+     for (unused1 in 0 until THREADS) {
+         rx.recv().unwrap()
+@@ -38,16 +38,16 @@
+         val wg21 = wg2.clone()
+         val tx1 = tx.clone()
+         thread.spawn({
+-            wg21.wait()
++            wg21.await()
+             tx1.send().unwrap()
+             drop(wg1)
+         })
+     }
+-    // At this point, no thread has gotten past `wg2.wait()`, so we shouldn't get anything from the
++    // At this point, no thread has gotten past `wg2.await()`, so we shouldn't get anything from the
+     // channel.
+     check(rx.tryRecv().isErr())
+     drop(wg2)
+-    wg.wait()
++    wg.await()
+     // Now, the wait group is cleared and we should receive messages.
+     for (unused1 in 0 until THREADS) {
+         rx.tryRecv().unwrap()

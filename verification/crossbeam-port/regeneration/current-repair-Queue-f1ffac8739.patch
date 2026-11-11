@@ -1,0 +1,21 @@
+--- native-kexe-emission:src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/Queue.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/Queue.kt
+@@ -1,12 +1,12 @@
+ // port-lint: source crossbeam-epoch/src/sync/queue.rs
+ package io.github.kotlinmania.crossbeam.epoch.sync.queue
+ 
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.atomic.Atomic
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.atomic.Owned
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.atomic.Shared
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.guard.Guard
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.guard.unprotected
+-import io.github.kotlinmania.crossbeam.utils.CachePadded
++import io.github.kotlinmania.crossbeam.epoch.atomic.Atomic
++import io.github.kotlinmania.crossbeam.epoch.atomic.Owned
++import io.github.kotlinmania.crossbeam.epoch.atomic.Shared
++import io.github.kotlinmania.crossbeam.epoch.guard.Guard
++import io.github.kotlinmania.crossbeam.epoch.guard.unprotected
++import io.github.kotlinmania.crossbeam.utils.cachepadded.CachePadded
+ 
+ // Michael-Scott lock-free queue.
+ //

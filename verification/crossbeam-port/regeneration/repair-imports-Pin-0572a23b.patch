@@ -1,0 +1,10 @@
+--- build/verification/redo-emission/epoch/benches/Pin.kt
++++ src/common/commonBenchmark/kotlin/io/github/kotlinmania/crossbeam/epoch/benches/pin/Pin.kt
+@@ -1,7 +1,6 @@
+ // port-lint: source crossbeam-epoch/benches/pin.rs
+ package io.github.kotlinmania.crossbeam.epoch.benches.pin
+ 
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamchannel.benchmarks.atomicring.THREADS
+ import io.github.kotlinmania.crossbeam.utils.thread.scope
+ import io.github.kotlinmania.test.Bencher
+ 

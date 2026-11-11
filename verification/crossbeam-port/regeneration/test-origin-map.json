@@ -1,0 +1,1044 @@
+{
+  "generator_sha256": "4e882c692974abb057b6892486ab7503b71f80428e36f21deef029e596efb192",
+  "tests_executed": false,
+  "rustdoc_test_emission": "not provided by this CLI; no manually invented replacement",
+  "files": [
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-utils/src/atomic/seq_lock.rs",
+      "source_sha256": "27182e6b87a9db73c5f6831759f8625f9fcdec3c2828204c444aef04f427735a",
+      "syntactically_named_rust_tests": [
+        "test_abort"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "test_abort",
+          "file": "src/common/seqLock64Test/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLockInlineTests.kt",
+          "matching_syntactic_rust_name": "test_abort"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-utils/src/atomic/seq_lock_wide.rs",
+      "source_sha256": "9888dd03116bb89ca36d4ab8d5a0b5032107a2983a7eb8024454263b09080088",
+      "syntactically_named_rust_tests": [
+        "test_abort"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "test_abort",
+          "file": "src/common/seqLock32Test/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlockwide/SeqLockWideInlineTests.kt",
+          "matching_syntactic_rust_name": "test_abort"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-utils/tests/atomic_cell.rs",
+      "source_sha256": "442a8bf4c35c43f0aedd59ba8f7a255af820a4ccd2ecabe8bf260a7322bbf6b1",
+      "syntactically_named_rust_tests": [
+        "is_lock_free",
+        "drops_unit",
+        "drops_u8",
+        "drops_usize",
+        "modular_u8",
+        "modular_usize",
+        "garbage_padding",
+        "const_atomic_cell",
+        "issue_748",
+        "issue_748",
+        "issue_833"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "is_lock_free",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": "is_lock_free"
+        },
+        {
+          "name": "drops_unit",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": "drops_unit"
+        },
+        {
+          "name": "drops_u8",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": "drops_u8"
+        },
+        {
+          "name": "drops_usize",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": "drops_usize"
+        },
+        {
+          "name": "modular_u8",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": "modular_u8"
+        },
+        {
+          "name": "modular_usize",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": "modular_usize"
+        },
+        {
+          "name": "garbage_padding",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": "garbage_padding"
+        },
+        {
+          "name": "const_atomic_cell",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": "const_atomic_cell"
+        },
+        {
+          "name": "arithmetic_u8",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": null,
+          "matching_rust_macro_invocation": {
+            "rust_name": "arithmetic_u8",
+            "invocation": "test_arithmetic!(arithmetic_u8, u8);",
+            "line": 304
+          }
+        },
+        {
+          "name": "arithmetic_i8",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": null,
+          "matching_rust_macro_invocation": {
+            "rust_name": "arithmetic_i8",
+            "invocation": "test_arithmetic!(arithmetic_i8, i8);",
+            "line": 305
+          }
+        },
+        {
+          "name": "arithmetic_u16",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": null,
+          "matching_rust_macro_invocation": {
+            "rust_name": "arithmetic_u16",
+            "invocation": "test_arithmetic!(arithmetic_u16, u16);",
+            "line": 306
+          }
+        },
+        {
+          "name": "arithmetic_i16",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": null,
+          "matching_rust_macro_invocation": {
+            "rust_name": "arithmetic_i16",
+            "invocation": "test_arithmetic!(arithmetic_i16, i16);",
+            "line": 307
+          }
+        },
+        {
+          "name": "arithmetic_u32",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": null,
+          "matching_rust_macro_invocation": {
+            "rust_name": "arithmetic_u32",
+            "invocation": "test_arithmetic!(arithmetic_u32, u32);",
+            "line": 308
+          }
+        },
+        {
+          "name": "arithmetic_i32",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": null,
+          "matching_rust_macro_invocation": {
+            "rust_name": "arithmetic_i32",
+            "invocation": "test_arithmetic!(arithmetic_i32, i32);",
+            "line": 309
+          }
+        },
+        {
+          "name": "arithmetic_u64",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": null,
+          "matching_rust_macro_invocation": {
+            "rust_name": "arithmetic_u64",
+            "invocation": "test_arithmetic!(arithmetic_u64, u64);",
+            "line": 310
+          }
+        },
+        {
+          "name": "arithmetic_i64",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": null,
+          "matching_rust_macro_invocation": {
+            "rust_name": "arithmetic_i64",
+            "invocation": "test_arithmetic!(arithmetic_i64, i64);",
+            "line": 311
+          }
+        },
+        {
+          "name": "arithmetic_u128",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": null,
+          "matching_rust_macro_invocation": {
+            "rust_name": "arithmetic_u128",
+            "invocation": "test_arithmetic!(arithmetic_u128, u128);",
+            "line": 312
+          }
+        },
+        {
+          "name": "arithmetic_i128",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": null,
+          "matching_rust_macro_invocation": {
+            "rust_name": "arithmetic_i128",
+            "invocation": "test_arithmetic!(arithmetic_i128, i128);",
+            "line": 313
+          }
+        },
+        {
+          "name": "issue_748",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": "issue_748"
+        },
+        {
+          "name": "issue_833",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+          "matching_syntactic_rust_name": "issue_833"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-utils/tests/cache_padded.rs",
+      "source_sha256": "1bfaff8354c8184e1ee1f902881ca9400b60effb273b0d3f752801a483d2b66d",
+      "syntactically_named_rust_tests": [
+        "default",
+        "store_u64",
+        "store_pair",
+        "distance",
+        "different_sizes",
+        "large",
+        "debug",
+        "drops",
+        "clone",
+        "runs_custom_clone"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "default",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/cachepadded/CachePadded.kt",
+          "matching_syntactic_rust_name": "default"
+        },
+        {
+          "name": "store_u64",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/cachepadded/CachePadded.kt",
+          "matching_syntactic_rust_name": "store_u64"
+        },
+        {
+          "name": "store_pair",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/cachepadded/CachePadded.kt",
+          "matching_syntactic_rust_name": "store_pair"
+        },
+        {
+          "name": "distance",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/cachepadded/CachePadded.kt",
+          "matching_syntactic_rust_name": "distance"
+        },
+        {
+          "name": "different_sizes",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/cachepadded/CachePadded.kt",
+          "matching_syntactic_rust_name": "different_sizes"
+        },
+        {
+          "name": "large",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/cachepadded/CachePadded.kt",
+          "matching_syntactic_rust_name": "large"
+        },
+        {
+          "name": "debug",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/cachepadded/CachePadded.kt",
+          "matching_syntactic_rust_name": "debug"
+        },
+        {
+          "name": "drops",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/cachepadded/CachePadded.kt",
+          "matching_syntactic_rust_name": "drops"
+        },
+        {
+          "name": "clone",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/cachepadded/CachePadded.kt",
+          "matching_syntactic_rust_name": "clone"
+        },
+        {
+          "name": "runs_custom_clone",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/cachepadded/CachePadded.kt",
+          "matching_syntactic_rust_name": "runs_custom_clone"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-utils/tests/parker.rs",
+      "source_sha256": "3564f5b7d046058342e5f242faa1000e30434562b8e12141af8e5d2b593f8cc2",
+      "syntactically_named_rust_tests": [
+        "park_timeout_unpark_before",
+        "park_timeout_unpark_not_called",
+        "park_timeout_unpark_called_other_thread"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "park_timeout_unpark_before",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/parker/Parker.kt",
+          "matching_syntactic_rust_name": "park_timeout_unpark_before"
+        },
+        {
+          "name": "park_timeout_unpark_not_called",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/parker/Parker.kt",
+          "matching_syntactic_rust_name": "park_timeout_unpark_not_called"
+        },
+        {
+          "name": "park_timeout_unpark_called_other_thread",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/parker/Parker.kt",
+          "matching_syntactic_rust_name": "park_timeout_unpark_called_other_thread"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-utils/tests/sharded_lock.rs",
+      "source_sha256": "6f1c2359ebf409c576a2ae74f37b182503d368d65f357f0f6fb4fcdb2a4e2b2a",
+      "syntactically_named_rust_tests": [
+        "smoke",
+        "frob",
+        "arc_poison_wr",
+        "arc_poison_ww",
+        "arc_no_poison_rr",
+        "arc_no_poison_sl",
+        "arc",
+        "arc_access_in_unwind",
+        "unsized_type",
+        "try_write",
+        "test_into_inner",
+        "test_into_inner_drop",
+        "test_into_inner_poison",
+        "test_get_mut",
+        "test_get_mut_poison",
+        "forget_guard"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "smoke",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "smoke"
+        },
+        {
+          "name": "frob",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "frob"
+        },
+        {
+          "name": "arc_poison_wr",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "arc_poison_wr"
+        },
+        {
+          "name": "arc_poison_ww",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "arc_poison_ww"
+        },
+        {
+          "name": "arc_no_poison_rr",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "arc_no_poison_rr"
+        },
+        {
+          "name": "arc_no_poison_sl",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "arc_no_poison_sl"
+        },
+        {
+          "name": "arc",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "arc"
+        },
+        {
+          "name": "arc_access_in_unwind",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "arc_access_in_unwind"
+        },
+        {
+          "name": "unsized_type",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "unsized_type"
+        },
+        {
+          "name": "try_write",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "try_write"
+        },
+        {
+          "name": "test_into_inner",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "test_into_inner"
+        },
+        {
+          "name": "test_into_inner_drop",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "test_into_inner_drop"
+        },
+        {
+          "name": "test_into_inner_poison",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "test_into_inner_poison"
+        },
+        {
+          "name": "test_get_mut",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "test_get_mut"
+        },
+        {
+          "name": "test_get_mut_poison",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "test_get_mut_poison"
+        },
+        {
+          "name": "forget_guard",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+          "matching_syntactic_rust_name": "forget_guard"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-utils/tests/thread.rs",
+      "source_sha256": "9a7d7d3028c552fd834c68598b04a1cc252a816bc20ab62cec060d6cd09cab10",
+      "syntactically_named_rust_tests": [
+        "join",
+        "counter",
+        "counter_builder",
+        "counter_panic",
+        "panic_twice",
+        "panic_many",
+        "nesting",
+        "join_nested",
+        "scope_returns_ok",
+        "as_pthread_t",
+        "as_raw_handle"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "join",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/thread/Thread.kt",
+          "matching_syntactic_rust_name": "join"
+        },
+        {
+          "name": "counter",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/thread/Thread.kt",
+          "matching_syntactic_rust_name": "counter"
+        },
+        {
+          "name": "counter_builder",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/thread/Thread.kt",
+          "matching_syntactic_rust_name": "counter_builder"
+        },
+        {
+          "name": "counter_panic",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/thread/Thread.kt",
+          "matching_syntactic_rust_name": "counter_panic"
+        },
+        {
+          "name": "panic_twice",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/thread/Thread.kt",
+          "matching_syntactic_rust_name": "panic_twice"
+        },
+        {
+          "name": "panic_many",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/thread/Thread.kt",
+          "matching_syntactic_rust_name": "panic_many"
+        },
+        {
+          "name": "nesting",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/thread/Thread.kt",
+          "matching_syntactic_rust_name": "nesting"
+        },
+        {
+          "name": "join_nested",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/thread/Thread.kt",
+          "matching_syntactic_rust_name": "join_nested"
+        },
+        {
+          "name": "scope_returns_ok",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/thread/Thread.kt",
+          "matching_syntactic_rust_name": "scope_returns_ok"
+        },
+        {
+          "name": "as_pthread_t",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/thread/Thread.kt",
+          "matching_syntactic_rust_name": "as_pthread_t"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-utils/tests/wait_group.rs",
+      "source_sha256": "2a41533a5f7f113d19cd2bdafcc2abf86509109652274156efdd74abd00896b6",
+      "syntactically_named_rust_tests": [
+        "wait",
+        "wait_and_drop"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "wait",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/waitgroup/WaitGroup.kt",
+          "matching_syntactic_rust_name": "wait"
+        },
+        {
+          "name": "wait_and_drop",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/waitgroup/WaitGroup.kt",
+          "matching_syntactic_rust_name": "wait_and_drop"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-epoch/src/atomic.rs",
+      "source_sha256": "5db5c12a916eda8e2d542335fe973af152a14325f92000558d55bcbe2889b1d7",
+      "syntactically_named_rust_tests": [
+        "valid_tag_i8",
+        "valid_tag_i64",
+        "const_null",
+        "array_init",
+        "format_null"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "valid_tag_i8",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/atomic/AtomicInlineTests.kt",
+          "matching_syntactic_rust_name": "valid_tag_i8"
+        },
+        {
+          "name": "valid_tag_i64",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/atomic/AtomicInlineTests.kt",
+          "matching_syntactic_rust_name": "valid_tag_i64"
+        },
+        {
+          "name": "const_null",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/atomic/AtomicInlineTests.kt",
+          "matching_syntactic_rust_name": "const_null"
+        },
+        {
+          "name": "array_init",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/atomic/AtomicInlineTests.kt",
+          "matching_syntactic_rust_name": "array_init"
+        },
+        {
+          "name": "format_null",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/atomic/AtomicInlineTests.kt",
+          "matching_syntactic_rust_name": "format_null"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-epoch/src/collector.rs",
+      "source_sha256": "12c6a00496fd702facaff3efdc993f326049d2bbb21fb2c9db1b8ffe6f54cf69",
+      "syntactically_named_rust_tests": [
+        "pin_reentrant",
+        "flush_local_bag",
+        "garbage_buffering",
+        "pin_holds_advance",
+        "incremental",
+        "buffering",
+        "count_drops",
+        "count_destroy",
+        "drop_array",
+        "destroy_array",
+        "stress"
+      ],
+      "native_emitted_tests": [],
+      "translation_exit": 2,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-epoch/src/default.rs",
+      "source_sha256": "a153392422d2a473afb01873d83c8d92f34a3bab5dde2f3743d916acce36f9b9",
+      "syntactically_named_rust_tests": [
+        "pin_while_exiting"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "pin_while_exiting",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/default/DefaultInlineTests.kt",
+          "matching_syntactic_rust_name": "pin_while_exiting"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-epoch/src/deferred.rs",
+      "source_sha256": "5ad2032c40f96e32f3bab367c843c3091c4300402e938217d2706070f20c6811",
+      "syntactically_named_rust_tests": [
+        "on_stack",
+        "on_heap",
+        "string",
+        "boxed_slice_i32",
+        "long_slice_usize"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "on_stack",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/deferred/DeferredInlineTests.kt",
+          "matching_syntactic_rust_name": "on_stack"
+        },
+        {
+          "name": "on_heap",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/deferred/DeferredInlineTests.kt",
+          "matching_syntactic_rust_name": "on_heap"
+        },
+        {
+          "name": "string",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/deferred/DeferredInlineTests.kt",
+          "matching_syntactic_rust_name": "string"
+        },
+        {
+          "name": "boxed_slice_i32",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/deferred/DeferredInlineTests.kt",
+          "matching_syntactic_rust_name": "boxed_slice_i32"
+        },
+        {
+          "name": "long_slice_usize",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/deferred/DeferredInlineTests.kt",
+          "matching_syntactic_rust_name": "long_slice_usize"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-epoch/src/internal.rs",
+      "source_sha256": "fcba7aab8a506b8e9259e30c3edc0af21e4f5675144b1e4d3e9182614be7c326",
+      "syntactically_named_rust_tests": [
+        "local_size",
+        "check_defer",
+        "check_bag"
+      ],
+      "native_emitted_tests": [],
+      "translation_exit": 2,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-epoch/src/sync/list.rs",
+      "source_sha256": "6950177b01fa6f51d3f4ca22f3ce4e77143eed28bec04579ecc8a8599ab17031",
+      "syntactically_named_rust_tests": [
+        "insert",
+        "delete",
+        "insert_delete_multi",
+        "iter_multi"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "insert",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/list/ListInlineTests.kt",
+          "matching_syntactic_rust_name": "insert"
+        },
+        {
+          "name": "delete",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/list/ListInlineTests.kt",
+          "matching_syntactic_rust_name": "delete"
+        },
+        {
+          "name": "insert_delete_multi",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/list/ListInlineTests.kt",
+          "matching_syntactic_rust_name": "insert_delete_multi"
+        },
+        {
+          "name": "iter_multi",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/list/ListInlineTests.kt",
+          "matching_syntactic_rust_name": "iter_multi"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-epoch/src/sync/queue.rs",
+      "source_sha256": "0324e9b07dfd0f76ba0058395a4b9ae4b4a6e5ab0aec41d98edab7864bac3157",
+      "syntactically_named_rust_tests": [
+        "push_try_pop_1",
+        "push_try_pop_2",
+        "push_try_pop_many_seq",
+        "push_pop_1",
+        "push_pop_2",
+        "push_pop_many_seq",
+        "push_try_pop_many_spsc",
+        "push_try_pop_many_spmc",
+        "push_try_pop_many_mpmc",
+        "push_pop_many_spsc",
+        "is_empty_dont_pop"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "push_try_pop_1",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/QueueInlineTests.kt",
+          "matching_syntactic_rust_name": "push_try_pop_1"
+        },
+        {
+          "name": "push_try_pop_2",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/QueueInlineTests.kt",
+          "matching_syntactic_rust_name": "push_try_pop_2"
+        },
+        {
+          "name": "push_try_pop_many_seq",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/QueueInlineTests.kt",
+          "matching_syntactic_rust_name": "push_try_pop_many_seq"
+        },
+        {
+          "name": "push_pop_1",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/QueueInlineTests.kt",
+          "matching_syntactic_rust_name": "push_pop_1"
+        },
+        {
+          "name": "push_pop_2",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/QueueInlineTests.kt",
+          "matching_syntactic_rust_name": "push_pop_2"
+        },
+        {
+          "name": "push_pop_many_seq",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/QueueInlineTests.kt",
+          "matching_syntactic_rust_name": "push_pop_many_seq"
+        },
+        {
+          "name": "push_try_pop_many_spsc",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/QueueInlineTests.kt",
+          "matching_syntactic_rust_name": "push_try_pop_many_spsc"
+        },
+        {
+          "name": "push_try_pop_many_spmc",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/QueueInlineTests.kt",
+          "matching_syntactic_rust_name": "push_try_pop_many_spmc"
+        },
+        {
+          "name": "push_try_pop_many_mpmc",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/QueueInlineTests.kt",
+          "matching_syntactic_rust_name": "push_try_pop_many_mpmc"
+        },
+        {
+          "name": "push_pop_many_spsc",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/QueueInlineTests.kt",
+          "matching_syntactic_rust_name": "push_pop_many_spsc"
+        },
+        {
+          "name": "is_empty_dont_pop",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/QueueInlineTests.kt",
+          "matching_syntactic_rust_name": "is_empty_dont_pop"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-epoch/tests/loom.rs",
+      "source_sha256": "db772f4478966de6ec98774ca4093171dc942da635822a0d2d3257d31188cb9b",
+      "syntactically_named_rust_tests": [
+        "it_works",
+        "treiber_stack"
+      ],
+      "native_emitted_tests": [],
+      "translation_exit": 0,
+      "inactive_crate_cfg": true,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-deque/tests/fifo.rs",
+      "source_sha256": "3d98e0d4ca7cfddf10708b71642cf1ff05543d067ad837e48401d63cc31c0a18",
+      "syntactically_named_rust_tests": [
+        "smoke",
+        "is_empty",
+        "spsc",
+        "stampede",
+        "stress",
+        "no_starvation",
+        "destructors"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "smoke",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/fifo/Fifo.kt",
+          "matching_syntactic_rust_name": "smoke"
+        },
+        {
+          "name": "is_empty",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/fifo/Fifo.kt",
+          "matching_syntactic_rust_name": "is_empty"
+        },
+        {
+          "name": "spsc",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/fifo/Fifo.kt",
+          "matching_syntactic_rust_name": "spsc"
+        },
+        {
+          "name": "stampede",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/fifo/Fifo.kt",
+          "matching_syntactic_rust_name": "stampede"
+        },
+        {
+          "name": "stress",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/fifo/Fifo.kt",
+          "matching_syntactic_rust_name": "stress"
+        },
+        {
+          "name": "no_starvation",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/fifo/Fifo.kt",
+          "matching_syntactic_rust_name": "no_starvation"
+        },
+        {
+          "name": "destructors",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/fifo/Fifo.kt",
+          "matching_syntactic_rust_name": "destructors"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-deque/tests/injector.rs",
+      "source_sha256": "859a0e6fd306e844e8fd660104a994aa894a165f20fa326f4b807e660eaf7878",
+      "syntactically_named_rust_tests": [
+        "smoke",
+        "is_empty",
+        "spsc",
+        "mpmc",
+        "stampede",
+        "stress",
+        "no_starvation",
+        "destructors",
+        "stack_overflow"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "smoke",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/injector/Injector.kt",
+          "matching_syntactic_rust_name": "smoke"
+        },
+        {
+          "name": "is_empty",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/injector/Injector.kt",
+          "matching_syntactic_rust_name": "is_empty"
+        },
+        {
+          "name": "spsc",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/injector/Injector.kt",
+          "matching_syntactic_rust_name": "spsc"
+        },
+        {
+          "name": "mpmc",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/injector/Injector.kt",
+          "matching_syntactic_rust_name": "mpmc"
+        },
+        {
+          "name": "stampede",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/injector/Injector.kt",
+          "matching_syntactic_rust_name": "stampede"
+        },
+        {
+          "name": "stress",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/injector/Injector.kt",
+          "matching_syntactic_rust_name": "stress"
+        },
+        {
+          "name": "no_starvation",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/injector/Injector.kt",
+          "matching_syntactic_rust_name": "no_starvation"
+        },
+        {
+          "name": "destructors",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/injector/Injector.kt",
+          "matching_syntactic_rust_name": "destructors"
+        },
+        {
+          "name": "stack_overflow",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/injector/Injector.kt",
+          "matching_syntactic_rust_name": "stack_overflow"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-deque/tests/lifo.rs",
+      "source_sha256": "57abdb3fc5920a422f785ba308b658bdc5400947532eeffb799f2395a2061549",
+      "syntactically_named_rust_tests": [
+        "smoke",
+        "is_empty",
+        "spsc",
+        "stampede",
+        "stress",
+        "no_starvation",
+        "destructors"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "smoke",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/lifo/Lifo.kt",
+          "matching_syntactic_rust_name": "smoke"
+        },
+        {
+          "name": "is_empty",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/lifo/Lifo.kt",
+          "matching_syntactic_rust_name": "is_empty"
+        },
+        {
+          "name": "spsc",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/lifo/Lifo.kt",
+          "matching_syntactic_rust_name": "spsc"
+        },
+        {
+          "name": "stampede",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/lifo/Lifo.kt",
+          "matching_syntactic_rust_name": "stampede"
+        },
+        {
+          "name": "stress",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/lifo/Lifo.kt",
+          "matching_syntactic_rust_name": "stress"
+        },
+        {
+          "name": "no_starvation",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/lifo/Lifo.kt",
+          "matching_syntactic_rust_name": "no_starvation"
+        },
+        {
+          "name": "destructors",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/lifo/Lifo.kt",
+          "matching_syntactic_rust_name": "destructors"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    },
+    {
+      "rust_source": "tmp/crossbeam/crossbeam-deque/tests/steal.rs",
+      "source_sha256": "cdf588cc13eeb275ef1231eb18e3245faca7a2d054fa6527bfdba2a34bc8f7bf",
+      "syntactically_named_rust_tests": [
+        "steal_fifo",
+        "steal_lifo",
+        "steal_injector",
+        "steal_batch_fifo_fifo",
+        "steal_batch_lifo_lifo",
+        "steal_batch_fifo_lifo",
+        "steal_batch_lifo_fifo",
+        "steal_batch_injector_fifo",
+        "steal_batch_injector_lifo",
+        "steal_batch_and_pop_fifo_fifo",
+        "steal_batch_and_pop_lifo_lifo",
+        "steal_batch_and_pop_fifo_lifo",
+        "steal_batch_and_pop_lifo_fifo",
+        "steal_batch_and_pop_injector_fifo",
+        "steal_batch_and_pop_injector_lifo"
+      ],
+      "native_emitted_tests": [
+        {
+          "name": "steal_fifo",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+          "matching_syntactic_rust_name": "steal_fifo"
+        },
+        {
+          "name": "steal_lifo",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+          "matching_syntactic_rust_name": "steal_lifo"
+        },
+        {
+          "name": "steal_injector",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+          "matching_syntactic_rust_name": "steal_injector"
+        },
+        {
+          "name": "steal_batch_fifo_fifo",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+          "matching_syntactic_rust_name": "steal_batch_fifo_fifo"
+        },
+        {
+          "name": "steal_batch_lifo_lifo",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+          "matching_syntactic_rust_name": "steal_batch_lifo_lifo"
+        },
+        {
+          "name": "steal_batch_fifo_lifo",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+          "matching_syntactic_rust_name": "steal_batch_fifo_lifo"
+        },
+        {
+          "name": "steal_batch_lifo_fifo",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+          "matching_syntactic_rust_name": "steal_batch_lifo_fifo"
+        },
+        {
+          "name": "steal_batch_injector_fifo",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+          "matching_syntactic_rust_name": "steal_batch_injector_fifo"
+        },
+        {
+          "name": "steal_batch_injector_lifo",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+          "matching_syntactic_rust_name": "steal_batch_injector_lifo"
+        },
+        {
+          "name": "steal_batch_and_pop_fifo_fifo",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+          "matching_syntactic_rust_name": "steal_batch_and_pop_fifo_fifo"
+        },
+        {
+          "name": "steal_batch_and_pop_lifo_lifo",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+          "matching_syntactic_rust_name": "steal_batch_and_pop_lifo_lifo"
+        },
+        {
+          "name": "steal_batch_and_pop_fifo_lifo",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+          "matching_syntactic_rust_name": "steal_batch_and_pop_fifo_lifo"
+        },
+        {
+          "name": "steal_batch_and_pop_lifo_fifo",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+          "matching_syntactic_rust_name": "steal_batch_and_pop_lifo_fifo"
+        },
+        {
+          "name": "steal_batch_and_pop_injector_fifo",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+          "matching_syntactic_rust_name": "steal_batch_and_pop_injector_fifo"
+        },
+        {
+          "name": "steal_batch_and_pop_injector_lifo",
+          "file": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+          "matching_syntactic_rust_name": "steal_batch_and_pop_injector_lifo"
+        }
+      ],
+      "translation_exit": 0,
+      "inactive_crate_cfg": false,
+      "qualification": "Name/macro-origin evidence only, not body-equivalence, active-cfg coverage, compilation or execution proof."
+    }
+  ]
+}

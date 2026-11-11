@@ -1,0 +1,1881 @@
+--- build/verification/regenerated-kexe/epoch/src/atomic.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Atomic.kt
+@@ -1,1592 +1,300 @@
+ // port-lint: source crossbeam-epoch/src/atomic.rs
+-package io.github.kotlinmania.crossbeam.epoch.atomic
+-
+-import io.github.kotlinmania.crossbeam.COpaquePointer
+-import io.github.kotlinmania.crossbeam.guard.Guard
+-import io.github.kotlinmania.crossbeam.primitive.sync.atomic.AtomicUsize
+-import io.github.kotlinmania.crossbeam.primitive.sync.atomic.Ordering
+-import io.github.kotlinmania.crossbeamutils.atomic.AtomicConsume
+-
+-public class DebugStruct(
+-    private val out: StringBuilder,
+-    private val name: String,
++package io.github.kotlinmania.crossbeam.epoch
++
++import kotlin.concurrent.atomics.AtomicInt
++import kotlin.concurrent.atomics.AtomicReference
++
++/** Requested Rust memory ordering. Kotlin atomics provide the stronger sequential consistency. */
++public enum class Ordering { Relaxed, Acquire, Release, AcqRel, SeqCst }
++
++/** The observed pointer and the proposal whose ownership is retained on failed comparison. */
++public data class CompareExchangeError<T : Any, P : Pointer<T>>(
++    val current: Shared<T>,
++    val new: P,
++)
++
++/** Kotlin's typed counterpart of Rust's Result for an atomic compare/exchange. */
++public sealed class CompareExchangeResult<T : Any, P : Pointer<T>> {
++    public data class Success<T : Any, P : Pointer<T>>(
++        val value: Shared<T>,
++    ) : CompareExchangeResult<T, P>()
++    public data class Failure<T : Any, P : Pointer<T>>(
++        val error: CompareExchangeError<T, P>,
++    ) : CompareExchangeResult<T, P>()
++    public fun isSuccess(): Boolean = this is Success
++}
++
++/** The previous pointer on success, or the last observed pointer if the update declined. */
++public sealed class FetchUpdateResult<T : Any> {
++    public data class Success<T : Any>(
++        val value: Shared<T>,
++    ) : FetchUpdateResult<T>()
++    public data class Failure<T : Any>(
++        val value: Shared<T>,
++    ) : FetchUpdateResult<T>()
++    public fun isSuccess(): Boolean = this is Success
++}
++
++internal class Allocation<T : Any>(
++    value: T,
++    alignment: Int,
++    destroy: (T) -> Unit,
+ ) {
+-    private val fields: MutableList<String> = mutableListOf()
+-
+-    public fun field(name: String, value: Any?): DebugStruct =
+-        apply {
+-            fields.add("$name: $value")
+-        }
+-
+-    public fun finish() {
+-        if (fields.isEmpty()) {
+-            out.append(name)
+-        } else {
+-            out.append("$name { ${fields.joinToString(", ")} }")
+-        }
+-    }
+-
+-    public fun finishNonExhaustive() {
+-        fields.add("..")
+-        finish()
+-    }
++    private val destroy = AtomicReference<((T) -> Unit)?>(destroy)
++    val tagMask = alignmentMask(alignment)
++    private val value = AtomicReference<T?>(value)
++
++    // 0: uniquely owned, 1: shared, 2: destroyed or extracted.
++    private val ownership = AtomicInt(0)
++    fun get(): T = checkNotNull(value.load()) { "Access to a reclaimed allocation" }
++    fun publish() {
++        check(ownership.compareAndSet(0, 1)) { "Allocation is not uniquely owned" }
++    }
++    fun acquire() {
++        check(ownership.compareAndSet(1, 0)) { "Allocation is already owned or reclaimed" }
++    }
++    fun dispose() {
++        check(ownership.exchange(2) != 2) { "Allocation reclaimed twice" }
++        val old = checkNotNull(value.exchange(null))
++        checkNotNull(destroy.exchange(null))(old)
++    }
++    fun take(): T {
++        check(ownership.compareAndSet(0, 2)) { "Allocation is not uniquely owned" }
++        destroy.store(null)
++        return checkNotNull(value.exchange(null))
++    }
++}
++
++/** A uniquely owned or epoch-protected reference accepted by [Atomic]. */
++public sealed class Pointer<T : Any> protected constructor() {
++    internal abstract val allocation: Allocation<T>?
++    internal abstract val bits: Int
++    internal abstract val tagMask: Int
++    internal abstract fun publish(): Shared<T>
++    internal open fun cancelPublication() {}
+ }
+ 
+ /**
+- * Given ordering for the success case in a compare-exchange operation, returns the strongest
+- * appropriate ordering for the failure case.
++ * A unique allocation. Close it to run its destructor, or transfer it into [Shared] or [Atomic].
++ *
++ * Kotlin has no implicit Drop. The explicit [dispose] callback is executed by [close] or by
++ * epoch reclamation, not by the JVM/Native garbage collector. It can release native buffers,
++ * close resources, or recursively destroy owned fields. Managed reference storage is released
++ * at the same point. [alignment] specifies the pointee layout's tag capacity; the default is
++ * eight-byte alignment for managed references. It does not promise native raw-pointer layout.
+  */
+-public fun strongestFailureOrdering(ord: Ordering): Ordering {
+-    return when (ord) {
+-        Relaxed, Release -> Relaxed
+-        Acquire, AcqRel -> Acquire
+-        else -> SeqCst
+-    }
+-}
+-
+-// Note: remove in the next major version.
++public class Owned<T : Any> private constructor(
++    override val allocation: Allocation<T>,
++    override val bits: Int,
++) : Pointer<T>(),
++    AutoCloseable {
++    private var consumed = false
++    override val tagMask: Int get() = allocation.tagMask
++    public constructor(value: T, alignment: Int = 8, dispose: (T) -> Unit = {}) : this(Allocation(value, alignment, dispose), 0)
++    public fun deref(): T {
++        check(!consumed) { "Owned was moved" }
++        return allocation.get()
++    }
++    public fun asRef(): T = deref()
++    public fun asMut(): T = deref()
++    public fun tag(): Int = bits
++    public fun withTag(tag: Int): Owned<T> {
++        check(!consumed) { "Owned was moved" }
++        consumed = true
++        return Owned(allocation, tag and tagMask)
++    }
++    public fun intoShared(guard: Guard): Shared<T> {
++        guard.ensureActive()
++        return publish().protectedBy(guard)
++    }
++    public fun intoValue(): T {
++        check(!consumed) { "Owned was moved" }
++        consumed = true
++        return allocation.take()
++    }
++    override fun publish(): Shared<T> {
++        check(!consumed) { "Owned was moved" }
++        allocation.publish()
++        consumed = true
++        return Shared(allocation, bits, null, tagMask)
++    }
++    override fun cancelPublication() {
++        allocation.acquire()
++        consumed = false
++    }
++    override fun close() {
++        if (!consumed) {
++            consumed = true
++            allocation.dispose()
++        }
++    }
++    internal companion object {
++        fun <T : Any> acquire(allocation: Allocation<T>, tag: Int): Owned<T> {
++            allocation.acquire()
++            return Owned(allocation, tag)
++        }
++    }
++}
+ 
+ /**
+- * The error returned on failed compare-and-set operation.
++ * A nullable, tagged shared allocation. As in Rust's unsafe API, the caller must ensure every
++ * dereference accesses live, properly synchronized storage. A protected borrow must remain within
++ * its guard's pinned lifetime and must not cross [Guard.repin] or [Guard.repinAfter]. After an
++ * allocation is unlinked and its grace period has elapsed, an exclusive deferred owner may also
++ * dereference it before destruction. Kotlin does not enforce these borrowing preconditions.
++ * Conversion back to ownership requires exclusive access and the absence of all other readers.
+  */
+-public typealias CompareAndSetError<T, P> = CompareExchangeError<T, P>
++public class Shared<T : Any> internal constructor(
++    override val allocation: Allocation<T>?,
++    override val bits: Int,
++    private val guard: Guard?,
++    override val tagMask: Int = allocation?.tagMask ?: 7,
++) : Pointer<T>() {
++    private val generation = guard?.generation
++    public fun isNull(): Boolean = allocation == null
++    public fun tag(): Int = bits
++    public fun withTag(tag: Int): Shared<T> {
++        guard?.ensureGeneration(generation)
++        return Shared(allocation, tag and tagMask, guard, tagMask)
++    }
++
++    /** Requires a protected borrow or exclusive access; only allocation liveness is checked. */
++    public fun deref(): T = checkNotNull(allocation) { "Dereferencing a null pointer" }.get()
++    public fun asRef(): T? = if (isNull()) null else deref()
++    public fun intoOwned(): Owned<T> = Owned.acquire(checkNotNull(allocation) { "Owning a null pointer" }, bits)
++    public fun tryIntoOwned(): Owned<T>? = allocation?.let { Owned.acquire(it, bits) }
++    override fun publish(): Shared<T> {
++        guard?.ensureGeneration(generation)
++        return Shared(allocation, bits, null, tagMask)
++    }
++    internal fun protectedBy(guard: Guard): Shared<T> = Shared(allocation, bits, guard, tagMask)
++    internal fun dispose() {
++        checkNotNull(allocation).dispose()
++    }
++    override fun equals(other: Any?): Boolean = other is Shared<*> && allocation === other.allocation && bits == other.bits
++    override fun hashCode(): Int = 31 * (allocation?.hashCode() ?: 0) + bits
++    override fun toString(): String = if (isNull()) "0x${bits.toString(16)}" else "Shared(tag=$bits)"
++    public companion object {
++        public fun <T : Any> nullPointer(alignment: Int = 8): Shared<T> = Shared(null, 0, null, alignmentMask(alignment))
++    }
++}
++
++private fun alignmentMask(alignment: Int): Int {
++    require(alignment > 0 && alignment and (alignment - 1) == 0) { "Alignment must be a power of two" }
++    return alignment - 1
++}
+ 
+ /**
+- * The error returned on failed compare-and-swap operation.
++ * An atomic tagged pointer. Stores and exchanges do not destroy the previous allocation: unlink
++ * it, then call [Guard.deferDestroy]. The atomic itself likewise does not own its stored object.
+  */
+-public class CompareExchangeError<T : Pointable<T>, P : Pointer<T>>(
+-    /**
+-     * The value in the atomic pointer at the time of the failed operation.
+-     */
+-    public var current: Shared<T> = Shared<T>(),
+-    /**
+-     * The new value, which the operation failed to store.
+-     */
+-    public var new: P = P(),
++public class Atomic<T : Any> private constructor(
++    initial: Shared<T>,
+ ) {
+-    public fun fmt(f: StringBuilder) {
+-        DebugStruct(f, "CompareExchangeError").field("current", this.current).field("new", this.new).finish()
+-    }
+-}
+-
+-// Note: remove in the next major version.
+-
+-/**
+- * Memory orderings for compare-and-set operations.
+- *
+- * A compare-and-set operation can have different memory orderings depending on whether it
+- * succeeds or fails. This trait generalizes different ways of specifying memory orderings.
+- *
+- * The two ways of specifying orderings for compare-and-set are:
+- *
+- * 1. Just one `Ordering` for the success case. In case of failure, the strongest appropriate
+- *    ordering is chosen.
+- * 2. A pair of `Ordering`s. The first one is for the success case, while the second one is
+- *    for the failure case.
+- */
+-public interface CompareAndSetOrdering {
+-    /**
+-     * The ordering of the operation when it succeeds.
+-     */
+-    public fun success(): Ordering
+-
+-    /**
+-     * The ordering of the operation when it fails.
+-     *
+-     * The failure ordering can't be `Release` or `AcqRel` and must be equivalent or weaker than
+-     * the success ordering.
+-     */
+-    public fun failure(): Ordering
+-}
+-
+-public fun Ordering.success(): Ordering {
+-    return this
+-}
+-
+-public fun Ordering.failure(): Ordering {
+-    return strongestFailureOrdering(this)
+-}
+-
+-public fun Pair<Ordering, Ordering>.success(): Ordering {
+-    return this.value
+-}
+-
+-public fun Pair<Ordering, Ordering>.failure(): Ordering {
+-    return this.field1
+-}
+-
+-/**
+- * Returns a bitmask containing the unused least significant bits of an aligned pointer to `T`.
+- */
+-public fun <Init, T : Pointable<T>> lowBits(): Int {
+-    return (1 shl T.ALIGN.trailingZeros().toInt()) - 1
+-}
+-
+-/**
+- * Panics if the pointer is not properly unaligned.
+- */
+-public fun <Init, T : Pointable<T>> ensureAligned(raw: Int) {
+-    check(raw and lowBits<T>() == 0)
+-}
+-
+-/**
+- * Given a tagged pointer `data`, returns the same pointer, but tagged with `tag`.
+- *
+- * `tag` is truncated to fit into the unused bits of the pointer to `T`.
+- */
+-public fun <Init, T : Pointable<T>> composeTag(data: Int, tag: Int): Int {
+-    return (data and lowBits<T>().inv()) or (tag and lowBits<T>())
+-}
+-
+-/**
+- * Decomposes a tagged pointer `data` into the pointer and the tag.
+- */
+-public fun <Init, T : Pointable<T>> decomposeTag(data: Int): Pair<Int, Int> {
+-    return Pair(data and lowBits<T>().inv(), data and lowBits<T>())
+-}
+-
+-/**
+- * Types that are pointed to by a single word.
+- *
+- * In concurrent programming, it is necessary to represent an object within a word because atomic
+- * operations (e.g., reads, writes, read-modify-writes) support only single words.  This trait
+- * qualifies such types that are pointed to by a single word.
+- *
+- * The trait generalizes `Holder<T>` for a sized type `T`.  In a box, an object of type `T` is
+- * allocated in heap and it is owned by a single-word pointer.  This trait is also implemented for
+- * `[MaybeUninit<T>]` by storing its size along with its elements and pointing to the pair of array
+- * size and elements.
+- *
+- * Pointers to `Pointable` types can be stored in [Atomic], [Owned], and [Shared].  In
+- * particular, Crossbeam supports dynamically sized slices as follows.
+- *
+- * ```kotlin
+- * import crossbeamepoch.Owned
+- * import std.mem.MaybeUninit
+- *
+- * val o = Owned.init(10)
+- * // allocating [i32; 10]
+- * ```
+- */
+-public interface Pointable<T, Init> {
+-    /**
+-     * The alignment of pointer.
+-     */
+-    public val ALIGN: Int
+-
+-    /**
+-     * Initializes a with the given initializer.
+-     *
+-     * # Safety
+-     *
+-     * The result should be a multiple of `ALIGN`.
+-     */
+-    public fun init(init: Init): Int
+-
+-    /**
+-     * Dereferences the given pointer.
+-     *
+-     * # Safety
+-     *
+-     * - The given `ptr` should have been initialized with [Pointable.init].
+-     * - `ptr` should not have yet been dropped by [Pointable.drop].
+-     * - `ptr` should not be mutably dereferenced by [Pointable.derefMut] concurrently.
+-     */
+-    public fun deref(ptr: Int): T
+-
+-    /**
+-     * Mutably dereferences the given pointer.
+-     *
+-     * # Safety
+-     *
+-     * - The given `ptr` should have been initialized with [Pointable.init].
+-     * - `ptr` should not have yet been dropped by [Pointable.drop].
+-     * - `ptr` should not be dereferenced by [Pointable.deref] or [Pointable.derefMut]
+-     *   concurrently.
+-     */
+-    public fun derefMut(ptr: Int): T
+-
+-    /**
+-     * Drops the object pointed to by the given pointer.
+-     *
+-     * # Safety
+-     *
+-     * - The given `ptr` should have been initialized with [Pointable.init].
+-     * - `ptr` should not have yet been dropped by [Pointable.drop].
+-     * - `ptr` should not be dereferenced by [Pointable.deref] or [Pointable.derefMut]
+-     *   concurrently.
+-     */
+-    public fun drop(ptr: Int)
+-}
+-
+-public val ALIGN: Int = 8
+-
+-public fun <T> pointableT(init: T): ULong {
+-    return (Box.intoRaw(init).toInt()).toULong()
+-}
+-
+-public fun <T> pointableT(ptr: Int): T {
+-    return (null)!!
+-}
+-
+-public fun <T> pointableT(ptr: ULong) {
+-    drop(Box.fromRaw(null))
+-}
+-
+-/**
+- * Array with size.
+- *
+- * # Memory layout
+- *
+- * An array consisting of size and elements:
+- *
+- * ```text
+- *          elements
+- *          |
+- *          |
+- * ------------------------------------
+- * | size | 0 | 1 | 2 | 3 | 4 | 5 | 6 |
+- * ------------------------------------
+- * ```
+- *
+- * Its memory layout is different from that of `Holder<[T]>` in that size is in the allocation (not
+- * along with pointer as in `Holder<[T]>`).
+- *
+- * Elements are not present in the type, but they will be in the allocation.
+- */
+-public class Array<T>(
+-    /**
+-     * The number of elements (not the number of bytes).
+-     */
+-    public var len: Int = 0,
+-    public var elements: List<T> = List(0) { T() },
+-) {
++    private val tagMask = initial.tagMask
++    private val data = AtomicReference(initial.publish())
++    public constructor(value: T, alignment: Int = 8, dispose: (T) -> Unit = {}) : this(Owned(value, alignment, dispose).publish())
++    public fun load(order: Ordering, guard: Guard): Shared<T> {
++        require(order != Ordering.Release && order != Ordering.AcqRel) { "Invalid load ordering" }
++        guard.ensureActive()
++        return data.load().protectedBy(guard)
++    }
++    public fun loadConsume(guard: Guard): Shared<T> = load(Ordering.Acquire, guard)
++    public fun store(new: Pointer<T>, order: Ordering) {
++        require(order != Ordering.Acquire && order != Ordering.AcqRel) { "Invalid store ordering" }
++        require(new.tagMask == tagMask) { "Mismatched pointee alignment" }
++        data.store(new.publish())
++    }
++    public fun swap(new: Pointer<T>, order: Ordering, guard: Guard): Shared<T> {
++        validateRmw(order)
++        guard.ensureActive()
++        require(new.tagMask == tagMask) { "Mismatched pointee alignment" }
++        return data.exchange(new.publish()).protectedBy(guard)
++    }
++
++    /** On success, returns the newly written pointer; failure retains ownership of [new]. */
++    public fun <P : Pointer<T>> compareExchange(
++        current: Shared<T>,
++        new: P,
++        success: Ordering,
++        failure: Ordering,
++        guard: Guard,
++    ): CompareExchangeResult<T, P> {
++        validateCompare(success, failure)
++        guard.ensureActive()
++        var observed = data.load()
++        if (observed != current) return CompareExchangeResult.Failure(CompareExchangeError(observed.protectedBy(guard), new))
++        require(new.tagMask == tagMask) { "Mismatched pointee alignment" }
++        val proposal = new.publish()
++        while (observed == current) {
++            if (data.compareAndSet(observed, proposal)) {
++                return CompareExchangeResult.Success(proposal.protectedBy(guard))
++            }
++            observed = data.load()
++        }
++        new.cancelPublication()
++        return CompareExchangeResult.Failure(CompareExchangeError(observed.protectedBy(guard), new))
++    }
++    public fun <P : Pointer<T>> compareExchangeWeak(
++        current: Shared<T>,
++        new: P,
++        success: Ordering,
++        failure: Ordering,
++        guard: Guard,
++    ): CompareExchangeResult<T, P> = compareExchange(current, new, success, failure, guard)
++
++    /** Applies [update] atomically and returns the previous pointer, unlike [compareExchange]. */
++    public fun fetchUpdate(
++        setOrder: Ordering,
++        fetchOrder: Ordering,
++        guard: Guard,
++        update: (Shared<T>) -> Shared<T>?,
++    ): FetchUpdateResult<T> {
++        validateCompare(setOrder, fetchOrder)
++        var previous = load(fetchOrder, guard)
++        while (true) {
++            val next = update(previous) ?: return FetchUpdateResult.Failure(previous)
++            when (val result = compareExchangeWeak(previous, next, setOrder, fetchOrder, guard)) {
++                is CompareExchangeResult.Success -> return FetchUpdateResult.Success(previous)
++                is CompareExchangeResult.Failure -> previous = result.error.current
++            }
++        }
++    }
++    public fun fetchAnd(value: Int, order: Ordering, guard: Guard): Shared<T> = updateTag(order, guard) { it and value }
++    public fun fetchOr(value: Int, order: Ordering, guard: Guard): Shared<T> = updateTag(order, guard) { it or value }
++    public fun fetchXor(value: Int, order: Ordering, guard: Guard): Shared<T> = updateTag(order, guard) { it xor value }
++    private fun updateTag(order: Ordering, guard: Guard, update: (Int) -> Int): Shared<T> {
++        validateRmw(order)
++        guard.ensureActive()
++        while (true) {
++            val old = data.load()
++            if (data.compareAndSet(old, old.withTag(update(old.bits)))) return old.protectedBy(guard)
++        }
++    }
++
++    /** Requires exclusive access; consumes the stored allocation. */
++    public fun intoOwned(): Owned<T> = data.exchange(Shared.nullPointer(tagMask + 1)).intoOwned()
++    public fun tryIntoOwned(): Owned<T>? = data.exchange(Shared.nullPointer(tagMask + 1)).tryIntoOwned()
++
++    /** Copies the pointer, not the allocation. Neither atomic becomes its owner. */
++    public fun copy(): Atomic<T> = Atomic(data.load())
++    override fun toString(): String = data.load().toString()
+     public companion object {
+-        public fun <T> layout(len: Int): Layout {
+-            return Layout.new<Array<T>>().extend(Layout.Array<T?>(len).unwrap()).unwrap().first.padToAlign()
+-        }
+-    }
+-}
+-
+-public val ALIGN1: Int = 8
+-
+-public fun <T> pointableMaybeUninitTSlice(len: Int): Int {
+-    val layout = Array.layout(len)
+-    val ptr = ((alloc(layout) as Any?) as Array<T>?)
+-    if ((ptr == null)) {
+-        handleAllocError(layout)
+-    }
+-    ptr!!.len.write(len)
+-    return ((ptr).hashCode().toLong()).toInt()
+-}
+-
+-/**
+- * An atomic pointer that can be safely shared between threads.
+- *
+- * The pointer must be properly aligned. Since it is aligned, a tag can be stored into the unused
+- * least significant bits of the address. For example, the tag for a pointer to a sized type `T`
+- * should be less than `(1<<mem.alignOf<T>().trailingZeros())`.
+- *
+- * Any method that loads the pointer must be passed a reference to a [Guard].
+- *
+- * Crossbeam supports dynamically sized types.  See [Pointable] for details.
+- */
+-public class Atomic<T : Pointable<T>>(public var data: AtomicUsize = AtomicUsize(), public var marker: Unit = Unit) : fmt.Pointer<Atomic<T>>, From<Owned<T>> {
+-    init {
+-        constFn(constIf, cfg, not, crossbeamLoom, doc, " Returns a new null atomic pointer.", doc, "", doc, " # Examples", doc, "", doc, " ```", doc, " use crossbeam_epoch::Atomic;", doc, "", doc, " let a = Atomic::<i32>::null();", doc, " ```", nullVal, Atomic, T, Atomic<T>, data, AtomicUsize, new, 0, marker, PhantomData)
+-    }
+-
+-    /**
+-     * Loads a `Shared` from the atomic pointer.
+-     *
+-     * This method takes an [Ordering] argument which describes the memory ordering of this
+-     * operation.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.new(1234)
+-     * val guard = epoch.pin()
+-     * val p = a.load(SeqCst, guard)
+-     * ```
+-     */
+-    public fun load(ord: Ordering, arg1: Guard): Shared<T> {
+-        return Shared.fromUsize(this.data.load(ord))
+-    }
+-
+-    /**
+-     * Loads a `Shared` from the atomic pointer using a "consume" memory ordering.
+-     *
+-     * This is similar to the "acquire" ordering, except that an ordering is
+-     * only guaranteed with operations that "depend on" the result of the load.
+-     * However consume loads are usually much faster than acquire loads on
+-     * architectures with a weak memory model since they don't require memory
+-     * fence instructions.
+-     *
+-     * The exact definition of "depend on" is a bit vague, but it works as you
+-     * would expect in practice since a lot of software, especially the Linux
+-     * kernel, rely on this behavior.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     *
+-     * val a = Atomic.new(1234)
+-     * val guard = epoch.pin()
+-     * val p = a.loadConsume(guard)
+-     * ```
+-     */
+-    public fun loadConsume(arg0: Guard): Shared<T> {
+-        return Shared.fromUsize(this.data.loadConsume())
+-    }
+-
+-    /**
+-     * Stores a `Shared` or `Owned` pointer into the atomic pointer.
+-     *
+-     * This method takes an [Ordering] argument which describes the memory ordering of this
+-     * operation.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import crossbeamepoch.Owned
+-     * import crossbeamepoch.Shared
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.new(1234)
+-     * a.store(null, SeqCst)
+-     * a.store(Owned.new(1234), SeqCst)
+-     * ```
+-     */
+-    public fun <P : Pointer<T>> store(new: P, ord: Ordering) {
+-        this.data.store(new.intoUsize(), ord)
+-    }
+-
+-    /**
+-     * Stores a `Shared` or `Owned` pointer into the atomic pointer, returning the previous
+-     * `Shared`.
+-     *
+-     * This method takes an [Ordering] argument which describes the memory ordering of this
+-     * operation.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import crossbeamepoch.Shared
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.new(1234)
+-     * val guard = epoch.pin()
+-     * val p = a.swap(null, SeqCst, guard)
+-     * ```
+-     */
+-    public fun <P : Pointer<T>> swap(new: P, ord: Ordering, arg2: Guard): Shared<T> {
+-        return Shared.fromUsize(this.data.swap(new.intoUsize(), ord))
+-    }
+-
+-    /**
+-     * Stores the pointer `new` (either `Shared` or `Owned`) into the atomic pointer if the current
+-     * value is the same as `current`. The tag is also taken into account, so two pointers to the
+-     * same object, but with different tags, will not be considered equal.
+-     *
+-     * The return value is a result indicating whether the new pointer was written. On success the
+-     * pointer that was written is returned. On failure the actual current value and `new` are
+-     * returned.
+-     *
+-     * This method takes two `Ordering` arguments to describe the memory
+-     * ordering of this operation. `success` describes the required ordering for the
+-     * read-modify-write operation that takes place if the comparison with `current` succeeds.
+-     * `failure` describes the required ordering for the load operation that takes place when
+-     * the comparison fails. Using `Acquire` as success ordering makes the store part
+-     * of this operation `Relaxed`, and using `Release` makes the successful load
+-     * `Relaxed`. The failure ordering can only be `SeqCst`, `Acquire` or `Relaxed`
+-     * and must be equivalent to or weaker than the success ordering.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import crossbeamepoch.Owned
+-     * import crossbeamepoch.Shared
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.new(1234)
+-     * val guard = epoch.pin()
+-     * val curr = a.load(SeqCst, guard)
+-     * val res1 = a.compareExchange(curr, null, SeqCst, SeqCst, guard)
+-     * val res2 = a.compareExchange(curr, Owned.new(5678), SeqCst, SeqCst, guard)
+-     * ```
+-     */
+-    public fun <P> compareExchange(current: Shared<T>, new: P, success: Ordering, failure: Ordering, arg4: Guard, fromUsizePFn: (Any?) -> Any?): Result<Shared<T>> where P : Pointer<T> {
+-        val new1 = new.intoUsize()
+-        return this.data.compareExchange(current.intoUsize(), new1, success, failure).map({ Shared.fromUsize(new1) }).mapErr({ current1 -> CompareExchangeError(current = Shared.fromUsize(current1), new = fromUsizePFn(new1)) })
+-    }
+-
+-    /**
+-     * Stores the pointer `new` (either `Shared` or `Owned`) into the atomic pointer if the current
+-     * value is the same as `current`. The tag is also taken into account, so two pointers to the
+-     * same object, but with different tags, will not be considered equal.
+-     *
+-     * Unlike [compareExchange], this method is allowed to spuriously fail even when comparison
+-     * succeeds, which can result in more efficient code on some platforms.  The return value is a
+-     * result indicating whether the new pointer was written. On success the pointer that was
+-     * written is returned. On failure the actual current value and `new` are returned.
+-     *
+-     * This method takes two `Ordering` arguments to describe the memory
+-     * ordering of this operation. `success` describes the required ordering for the
+-     * read-modify-write operation that takes place if the comparison with `current` succeeds.
+-     * `failure` describes the required ordering for the load operation that takes place when
+-     * the comparison fails. Using `Acquire` as success ordering makes the store part
+-     * of this operation `Relaxed`, and using `Release` makes the successful load
+-     * `Relaxed`. The failure ordering can only be `SeqCst`, `Acquire` or `Relaxed`
+-     * and must be equivalent to or weaker than the success ordering.
+-     *
+-     * [compareExchange]: Atomic::compareExchange
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import crossbeamepoch.Owned
+-     * import crossbeamepoch.Shared
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.new(1234)
+-     * val guard = epoch.pin()
+-     * var new = Owned.new(5678)
+-     * var ptr = a.load(SeqCst, guard)
+-     * while (true) {
+-     *     run {
+-     *         val matchVal = a.compareExchangeWeak(ptr, new, SeqCst, SeqCst, guard)
+-     *         if (matchVal.isSuccess) {
+-     *             val p = matchVal.getOrThrow()
+-     *             ptr = p
+-     *             break
+-     *         } else {
+-     *             val err = matchVal.exceptionOrNull()!!
+-     *             ptr = err.current
+-     *             new = err.new
+-     *         }
+-     *     }
+-     * }
+-     * var curr = a.load(SeqCst, guard)
+-     * while (true) {
+-     *     run {
+-     *         val matchVal1 = a.compareExchangeWeak(curr, null, SeqCst, SeqCst, guard)
+-     *         if (matchVal1.isSuccess) {
+-     *             break
+-     *         } else {
+-     *             val err1 = matchVal1.exceptionOrNull()!!
+-     *             curr = err1.current
+-     *         }
+-     *     }
+-     * }
+-     * ```
+-     */
+-    public fun <P> compareExchangeWeak(current: Shared<T>, new: P, success: Ordering, failure: Ordering, arg4: Guard, fromUsizePFn: (Any?) -> Any?): Result<Shared<T>> where P : Pointer<T> {
+-        val new1 = new.intoUsize()
+-        return this.data.compareExchangeWeak(current.intoUsize(), new1, success, failure).map({ Shared.fromUsize(new1) }).mapErr({ current1 -> CompareExchangeError(current = Shared.fromUsize(current1), new = fromUsizePFn(new1)) })
+-    }
+-
+-    /**
+-     * Fetches the pointer, and then applies a function to it that returns a new value.
+-     * Returns a `Result` of `Ok(previousValue)` if the function returned `Some`, else `Err(_)`.
+-     *
+-     * Note that the given function may be called multiple times if the value has been changed by
+-     * other threads in the meantime, as long as the function returns `Some(_)`, but the function
+-     * will have been applied only once to the stored value.
+-     *
+-     * `fetchUpdate` takes two [Ordering] arguments to describe the memory
+-     * ordering of this operation. The first describes the required ordering for
+-     * when the operation finally succeeds while the second describes the
+-     * required ordering for loads. These correspond to the success and failure
+-     * orderings of [Atomic.compareExchange] respectively.
+-     *
+-     * Using [Acquire] as success ordering makes the store part of this
+-     * operation [Relaxed], and using [Release] makes the final successful
+-     * load [Relaxed]. The (failed) load ordering can only be [SeqCst],
+-     * [Acquire] or [Relaxed] and must be equivalent to or weaker than the
+-     * success ordering.
+-     *
+-     * [Relaxed]: Ordering::Relaxed
+-     * [Acquire]: Ordering::Acquire
+-     * [Release]: Ordering::Release
+-     * [SeqCst]: Ordering::SeqCst
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.new(1234)
+-     * val guard = epoch.pin()
+-     * val res1 = a.fetchUpdate(SeqCst, SeqCst, guard, { x -> x.withTag(1) })
+-     * check(res1.isOk())
+-     * val res2 = a.fetchUpdate(SeqCst, SeqCst, guard, { x -> null })
+-     * check(res2.isErr())
+-     * ```
+-     */
+-    public fun fetchUpdate(setOrder: Ordering, failOrder: Ordering, guard: Guard, func: (Shared<T>) -> Shared<T>?): Result<Shared<T>> {
+-        var prev = this.load(failOrder, guard)
+-        while (true) {
+-            val matchVal = func(prev)
+-            if (matchVal == null) break
+-            val next = matchVal
+-            run {
+-                val matchVal1 = this.compareExchangeWeak(prev, next, setOrder, failOrder, guard)
+-                if (matchVal1.isSuccess) {
+-                    val result = matchVal1.getOrThrow()
+-                    return Result.success(prev)
+-                } else {
+-                    val nextPrev = matchVal1.exceptionOrNull()!!
+-                    prev = nextPrev.current
+-                }
+-            }
+-        }
+-        return Result.failure(prev)
+-    }
+-
+-    // Note: remove in the next major version.
+-
+-    /**
+-     * Stores the pointer `new` (either `Shared` or `Owned`) into the atomic pointer if the current
+-     * value is the same as `current`. The tag is also taken into account, so two pointers to the
+-     * same object, but with different tags, will not be considered equal.
+-     *
+-     * The return value is a result indicating whether the new pointer was written. On success the
+-     * pointer that was written is returned. On failure the actual current value and `new` are
+-     * returned.
+-     *
+-     * This method takes a [CompareAndSetOrdering] argument which describes the memory
+-     * ordering of this operation.
+-     *
+-     * # Migrating to `compareExchange`
+-     *
+-     * `compareAndSet` is equivalent to `compareExchange` with the following mapping for
+-     * memory orderings:
+-     *
+-     * Original | Success | Failure
+-     * -------- | ------- | -------
+-     * Relaxed  | Relaxed | Relaxed
+-     * Acquire  | Acquire | Acquire
+-     * Release  | Release | Relaxed
+-     * AcqRel   | AcqRel  | Acquire
+-     * SeqCst   | SeqCst  | SeqCst
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import crossbeamepoch.Owned
+-     * import crossbeamepoch.Shared
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.new(1234)
+-     * val guard = epoch.pin()
+-     * val curr = a.load(SeqCst, guard)
+-     * val res1 = a.compareAndSet(curr, null, SeqCst, guard)
+-     * val res2 = a.compareAndSet(curr, Owned.new(5678), SeqCst, guard)
+-     * ```
+-     */
+-    public fun <O, P> compareAndSet(current: Shared<T>, new: P, ord: O, guard: Guard): Result<Shared<T>> where O : CompareAndSetOrdering, P : Pointer<T> {
+-        return this.compareExchange(current, new, ord.success(), ord.failure(), guard)
+-    }
+-
+-    // Note: remove in the next major version.
+-
+-    /**
+-     * Stores the pointer `new` (either `Shared` or `Owned`) into the atomic pointer if the current
+-     * value is the same as `current`. The tag is also taken into account, so two pointers to the
+-     * same object, but with different tags, will not be considered equal.
+-     *
+-     * Unlike [compareAndSet], this method is allowed to spuriously fail even when comparison
+-     * succeeds, which can result in more efficient code on some platforms.  The return value is a
+-     * result indicating whether the new pointer was written. On success the pointer that was
+-     * written is returned. On failure the actual current value and `new` are returned.
+-     *
+-     * This method takes a [CompareAndSetOrdering] argument which describes the memory
+-     * ordering of this operation.
+-     *
+-     * [compareAndSet]: Atomic::compareAndSet
+-     *
+-     * # Migrating to `compareExchangeWeak`
+-     *
+-     * `compareAndSetWeak` is equivalent to `compareExchangeWeak` with the following mapping for
+-     * memory orderings:
+-     *
+-     * Original | Success | Failure
+-     * -------- | ------- | -------
+-     * Relaxed  | Relaxed | Relaxed
+-     * Acquire  | Acquire | Acquire
+-     * Release  | Release | Relaxed
+-     * AcqRel   | AcqRel  | Acquire
+-     * SeqCst   | SeqCst  | SeqCst
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import crossbeamepoch.Owned
+-     * import crossbeamepoch.Shared
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.new(1234)
+-     * val guard = epoch.pin()
+-     * var new = Owned.new(5678)
+-     * var ptr = a.load(SeqCst, guard)
+-     * while (true) {
+-     *     run {
+-     *         val matchVal = a.compareAndSetWeak(ptr, new, SeqCst, guard)
+-     *         if (matchVal.isSuccess) {
+-     *             val p = matchVal.getOrThrow()
+-     *             ptr = p
+-     *             break
+-     *         } else {
+-     *             val err = matchVal.exceptionOrNull()!!
+-     *             ptr = err.current
+-     *             new = err.new
+-     *         }
+-     *     }
+-     * }
+-     * var curr = a.load(SeqCst, guard)
+-     * while (true) {
+-     *     run {
+-     *         val matchVal1 = a.compareAndSetWeak(curr, null, SeqCst, guard)
+-     *         if (matchVal1.isSuccess) {
+-     *             break
+-     *         } else {
+-     *             val err1 = matchVal1.exceptionOrNull()!!
+-     *             curr = err1.current
+-     *         }
+-     *     }
+-     * }
+-     * ```
+-     */
+-    public fun <O, P> compareAndSetWeak(current: Shared<T>, new: P, ord: O, guard: Guard): Result<Shared<T>> where O : CompareAndSetOrdering, P : Pointer<T> {
+-        return this.compareExchangeWeak(current, new, ord.success(), ord.failure(), guard)
+-    }
+-
+-    /**
+-     * Bitwise "and" with the current tag.
+-     *
+-     * Performs a bitwise "and" operation on the current tag and the argument `val`, and sets the
+-     * new tag to the result. Returns the previous pointer.
+-     *
+-     * This method takes an [Ordering] argument which describes the memory ordering of this
+-     * operation.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import crossbeamepoch.Shared
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.from(null.withTag(3))
+-     * val guard = epoch.pin()
+-     * check(a.fetchAnd(2, SeqCst, guard).tag() == 3)
+-     * check(a.load(SeqCst, guard).tag() == 2)
+-     * ```
+-     */
+-    public fun fetchAnd(value: Int, ord: Ordering, arg2: Guard): Shared<T> {
+-        return Shared.fromUsize(this.data.fetchAnd(value or lowBits<T>().inv(), ord))
+-    }
+-
+-    /**
+-     * Bitwise "or" with the current tag.
+-     *
+-     * Performs a bitwise "or" operation on the current tag and the argument `val`, and sets the
+-     * new tag to the result. Returns the previous pointer.
+-     *
+-     * This method takes an [Ordering] argument which describes the memory ordering of this
+-     * operation.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import crossbeamepoch.Shared
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.from(null.withTag(1))
+-     * val guard = epoch.pin()
+-     * check(a.fetchOr(2, SeqCst, guard).tag() == 1)
+-     * check(a.load(SeqCst, guard).tag() == 3)
+-     * ```
+-     */
+-    public fun fetchOr(value: Int, ord: Ordering, arg2: Guard): Shared<T> {
+-        return Shared.fromUsize(this.data.fetchOr(value and lowBits<T>(), ord))
+-    }
+-
+-    /**
+-     * Bitwise "xor" with the current tag.
+-     *
+-     * Performs a bitwise "xor" operation on the current tag and the argument `val`, and sets the
+-     * new tag to the result. Returns the previous pointer.
+-     *
+-     * This method takes an [Ordering] argument which describes the memory ordering of this
+-     * operation.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import crossbeamepoch.Shared
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.from(null.withTag(1))
+-     * val guard = epoch.pin()
+-     * check(a.fetchXor(3, SeqCst, guard).tag() == 1)
+-     * check(a.load(SeqCst, guard).tag() == 2)
+-     * ```
+-     */
+-    public fun fetchXor(value: Int, ord: Ordering, arg2: Guard): Shared<T> {
+-        return Shared.fromUsize(this.data.fetchXor(value and lowBits<T>(), ord))
+-    }
+-
+-    /**
+-     * Takes ownership of the pointee.
+-     *
+-     * This consumes the atomic and converts it into [Owned]. As [Atomic] doesn't have a
+-     * destructor and doesn't drop the pointee while [Owned] does, this is suitable for
+-     * destructors of data structures.
+-     *
+-     * # Panics
+-     *
+-     * Panics if this pointer is null, but only in debug mode.
+-     *
+-     * # Safety
+-     *
+-     * This method may be called only if the pointer is valid and nobody else is holding a
+-     * reference to the same object.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * open class DataStructure(public var ptr: Atomic<Int>) {
+-     *     public open fun drop() {
+-     *         // By now the DataStructure lives only in our thread and we are sure we don't hold
+-     *         // any Shared or & to it ourselves.
+-     *         run {
+-     *             drop(replace(this.ptr, null).intoOwned())
+-     *         }
+-     *     }
+-     * }
+-     * ```
+-     */
+-    public fun intoOwned(): Owned<T> {
+-        return Owned.fromUsize(this.data.intoInner())
+-    }
+-
+-    /**
+-     * Takes ownership of the pointee if it is non-null.
+-     *
+-     * This consumes the atomic and converts it into [Owned]. As [Atomic] doesn't have a
+-     * destructor and doesn't drop the pointee while [Owned] does, this is suitable for
+-     * destructors of data structures.
+-     *
+-     * # Safety
+-     *
+-     * This method may be called only if the pointer is valid and nobody else is holding a
+-     * reference to the same object, or the pointer is null.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * open class DataStructure(public var ptr: Atomic<Int>) {
+-     *     public open fun drop() {
+-     *         // By now the DataStructure lives only in our thread and we are sure we don't hold
+-     *         // any Shared or & to it ourselves, but it may be null, so we have to be careful.
+-     *         val old = replace(this.ptr, null)
+-     *         when (val matchVal = old.tryIntoOwned()) {
+-     *             null -> {}
+-     *             else -> {
+-     *                 val x = matchVal
+-     *                 drop(x)
+-     *             }
+-     *         }
+-     *     }
+-     * }
+-     * ```
+-     */
+-    public fun tryIntoOwned(): Owned<T>? {
+-        val data = this.data.intoInner()
+-        return if (decomposeTag<T>(data).first == 0) {
+-            null
+-        } else {
+-            Owned.fromUsize(data)
+-        }
+-    }
+-
+-    public fun fmt(f: StringBuilder) {
+-        val data = this.data.load(Ordering.SeqCst)
+-        val (raw, tag) = decomposeTag<T>(data)
+-        DebugStruct(f, "Atomic").field("raw", raw).field("tag", tag).finish()
+-    }
+-
+-    public fun fmtPointer(f: StringBuilder) {
+-        val data = this.data.load(Ordering.SeqCst)
+-        val (raw, _) = decomposeTag<T>(data)
+-        fmt.Pointer.fmt((((raw as Any?) as COpaquePointer?)), f)
+-    }
+-
+-    /**
+-     * Returns a copy of the atomic value.
+-     *
+-     * Note that a `Relaxed` load is used here. If you need synchronization, use it with other
+-     * atomics or fences.
+-     */
+-    public fun clone(): Atomic<T> {
+-        val data = this.data.load(Ordering.Relaxed)
+-        return Atomic.fromUsize(data)
+-    }
+-
+-    public companion object {
+-        /**
+-         * Allocates `value` on the heap and returns a new atomic pointer pointing to it.
+-         *
+-         * # Examples
+-         *
+-         * ```kotlin
+-         * import crossbeamepoch.Atomic
+-         *
+-         * val a = Atomic.new(1234)
+-         * ```
+-         */
+-        public fun <Init, T : Pointable<T>> new(init: T): Atomic<T> {
+-            return Atomic.init(init)
+-        }
+-
+-        /**
+-         * Allocates `value` on the heap and returns a new atomic pointer pointing to it.
+-         *
+-         * # Examples
+-         *
+-         * ```kotlin
+-         * import crossbeamepoch.Atomic
+-         *
+-         * val a = Atomic.init(1234)
+-         * ```
+-         */
+-        public fun <Init, T : Pointable<T>> init(init: Init): Atomic<T> {
+-            return Atomic.from(Owned.init(init))
+-        }
+-
+-        /**
+-         * Returns a new atomic pointer pointing to the tagged pointer `data`.
+-         */
+-        public fun <Init, T : Pointable<T>> fromUsize(data: Int): Atomic<T> {
+-            return Atomic(data = AtomicUsize.new(data), marker = Unit)
+-        }
+-
+-        /**
+-         * Returns a new atomic pointer pointing to `owned`.
+-         *
+-         * # Examples
+-         *
+-         * ```kotlin
+-         * import crossbeamepoch.Atomic
+-         * import crossbeamepoch.Owned
+-         *
+-         * val a = Atomic.from(Owned.new(1234))
+-         * ```
+-         */
+-        public fun <Init, T : Pointable<T>> from(owned: Owned<T>): Atomic<T> {
+-            val data = owned.data
+-            mem.forget(owned)
+-            return Atomic.fromUsize(data)
+-        }
+-
+-        public fun <Init, T : Pointable<T>> from(b: T): Atomic<T> {
+-            return Atomic.from(Owned.from(b))
+-        }
+-
+-        public fun <Init, T : Pointable<T>> fromT(t: T): Atomic<T> {
+-            return Atomic.new(t)
+-        }
+-
+-        /**
+-         * Returns a new atomic pointer pointing to `ptr`.
+-         *
+-         * # Examples
+-         *
+-         * ```kotlin
+-         * import crossbeamepoch.Atomic
+-         * import crossbeamepoch.Shared
+-         *
+-         * val a = Atomic.from(null)
+-         * ```
+-         */
+-        public fun <Init, T : Pointable<T>> from(ptr: Shared<T>): Atomic<T> {
+-            return Atomic.fromUsize(ptr.data)
+-        }
+-
+-        /**
+-         * Returns a new atomic pointer pointing to `raw`.
+-         *
+-         * # Examples
+-         *
+-         * ```kotlin
+-         * import crossbeamepoch.Atomic
+-         *
+-         * val a = Atomic.from(null)
+-         * ```
+-         */
+-        public fun <Init, T : Pointable<T>> from(raw: COpaquePointer?): Atomic<T> {
+-            return Atomic.fromUsize(((raw)?.rawValue ?: 0L).toInt())
+-        }
+-    }
+-}
+-
+-/**
+- * A trait for either `Owned` or `Shared` pointers.
+- */
+-public interface Pointer<T : Pointable<T>, SelfType> {
+-    /**
+-     * Returns the machine representation of the pointer.
+-     */
+-    public fun intoUsize(): Int
+-
+-    /**
+-     * Returns a new pointer pointing to the tagged pointer `data`.
+-     *
+-     * # Safety
+-     *
+-     * The given `data` should have been created by `Pointer.intoUsize()`, and one `data` should
+-     * not be converted back by `Pointer.fromUsize()` multiple times.
+-     */
+-    public fun fromUsize(data: Int): SelfType
+-}
+-
+-/**
+- * An owned heap-allocated object.
+- *
+- * This type is very similar to `Holder<T>`.
+- *
+- * The pointer must be properly aligned. Since it is aligned, a tag can be stored into the unused
+- * least significant bits of the address.
+- */
+-public class Owned<T : Pointable<T>>(public var data: Int = 0, public var marker: Unit = Unit) : Pointer<T>, From<T>, Borrow<T>, BorrowMut<T>, AsRef<T>, AsMut<T> {
+-    public override fun intoUsize(): Int {
+-        val data = this.data
+-        mem.forget(this)
+-        return data
+-    }
+-
+-    /**
+-     * Converts the owned pointer into a `Holder`.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Owned
+-     *
+-     * val o = Owned.new(1234)
+-     * val b: Int = o.intoBox()
+-     * check(b == 1234)
+-     * ```
+-     */
+-    public fun intoBox(): T {
+-        val (raw, _) = decomposeTag<T>(this.data)
+-        mem.forget(this)
+-        return Box.fromRaw(((raw as Any?) as COpaquePointer?))
+-    }
+-
+-    /**
+-     * Converts the owned pointer into a [Shared].
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Owned
+-     *
+-     * val o = Owned.new(1234)
+-     * val guard = epoch.pin()
+-     * val p = o.intoShared(guard)
+-     * ```
+-     */
+-    public fun intoShared(arg0: Guard): Shared<T> {
+-        return Shared.fromUsize(this.intoUsize())
+-    }
+-
+-    /**
+-     * Returns the tag stored within the pointer.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Owned
+-     *
+-     * check(Owned.new(1234).tag() == 0)
+-     * ```
+-     */
+-    public fun tag(): Int {
+-        val (_, tag) = decomposeTag<T>(this.data)
+-        return tag
+-    }
+-
+-    /**
+-     * Returns the same pointer, but tagged with `tag`. `tag` is truncated to be fit into the
+-     * unused bits of the pointer to `T`.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Owned
+-     *
+-     * val o = Owned.new(0uL)
+-     * check(o.tag() == 0)
+-     * val o1 = o.withTag(2)
+-     * check(o1.tag() == 2)
+-     * ```
+-     */
+-    public fun withTag(tag: Int): Owned<T> {
+-        val data = this.intoUsize()
+-        return Owned.fromUsize(composeTag<T>(data, tag))
+-    }
+-
+-    public fun drop(dropTFn: (Any?) -> Any?) {
+-        val (raw, _) = decomposeTag<T>(this.data)
+-        run {
+-            dropTFn(raw)
+-        }
+-    }
+-
+-    public fun fmt(f: StringBuilder) {
+-        val (raw, tag) = decomposeTag<T>(this.data)
+-        DebugStruct(f, "Owned").field("raw", raw).field("tag", tag).finish()
+-    }
+-
+-    public fun clone(): Owned<T> {
+-        return Owned.new(Owned(this.data, this.marker).clone()).withTag(this.tag())
+-    }
+-
+-    public fun deref(derefTFn: (Any?) -> Any?): T {
+-        val (raw, _) = decomposeTag<T>(this.data)
+-        return derefTFn(raw)
+-    }
+-
+-    public fun derefMut(derefMutTFn: (Any?) -> Any?): T {
+-        val (raw, _) = decomposeTag<T>(this.data)
+-        return derefMutTFn(raw)
+-    }
+-
+-    public fun borrow(): T {
+-        return this.deref()
+-    }
+-
+-    public fun borrowMut(): T {
+-        return this.derefMut()
+-    }
+-
+-    public fun asRef(): T {
+-        return this.deref()
+-    }
+-
+-    public fun asMut(): T {
+-        return this.derefMut()
+-    }
+-
+-    public companion object {
+-        /**
+-         * Returns a new pointer pointing to the tagged pointer `data`.
+-         *
+-         * # Panics
+-         *
+-         * Panics if the data is zero in debug mode.
+-         */
+-        public fun <Init, T : Pointable<T>> fromUsize(data: Int): Owned<T> {
+-            check(data != 0) { "converting zero into `Owned`" }
+-            return Owned(data = data, marker = Unit)
+-        }
+-
+-        /**
+-         * Returns a new owned pointer pointing to `raw`.
+-         *
+-         * This function is unchecked because improper use may lead to memory problems. Argument `raw`
+-         * must be a valid pointer. Also, a double-free may occur if the function is called twice on
+-         * the same raw pointer.
+-         *
+-         * # Panics
+-         *
+-         * Panics if `raw` is not properly aligned.
+-         *
+-         * # Safety
+-         *
+-         * The given `raw` should have been derived from `Owned`, and one `raw` should not be converted
+-         * back by `Owned.fromRaw()` multiple times.
+-         *
+-         * # Examples
+-         *
+-         * ```kotlin
+-         * import crossbeamepoch.Owned
+-         *
+-         * val o = Owned.fromRaw(Holder.intoRaw(1234))
+-         * ```
+-         */
+-        public fun <Init, T : Pointable<T>> fromRaw(raw: T?): Owned<T> {
+-            val raw1 = ((raw).hashCode().toLong()).toInt()
+-            ensureAligned<T>(raw1)
+-            return Owned.fromUsize(raw1)
+-        }
+-
+-        /**
+-         * Allocates `value` on the heap and returns a new owned pointer pointing to it.
+-         *
+-         * # Examples
+-         *
+-         * ```kotlin
+-         * import crossbeamepoch.Owned
+-         *
+-         * val o = Owned.new(1234)
+-         * ```
+-         */
+-        public fun <Init, T : Pointable<T>> new(init: T): Owned<T> {
+-            return Owned.init(init)
+-        }
+-
+-        /**
+-         * Allocates `value` on the heap and returns a new owned pointer pointing to it.
+-         *
+-         * # Examples
+-         *
+-         * ```kotlin
+-         * import crossbeamepoch.Owned
+-         *
+-         * val o = Owned.init(1234)
+-         * ```
+-         */
+-        public fun <Init, T : Pointable<T>> init(init: Init, initTFn: (Any?) -> Any?): Owned<T> {
+-            return Owned.fromUsize(initTFn(init))
+-        }
+-
+-        public fun <Init, T : Pointable<T>> from(t: T): Owned<T> {
+-            return Owned.new(t)
+-        }
+-
+-        /**
+-         * Returns a new owned pointer pointing to `b`.
+-         *
+-         * # Panics
+-         *
+-         * Panics if the pointer (the `Holder`) is not properly aligned.
+-         *
+-         * # Examples
+-         *
+-         * ```kotlin
+-         * import crossbeamepoch.Owned
+-         *
+-         * val o = Owned.fromRaw(Holder.intoRaw(1234))
+-         * ```
+-         */
+-        public fun <Init, T : Pointable<T>> fromBoxT(b: T): Owned<T> {
+-            return Owned.fromRaw(Box.intoRaw(b))
+-        }
+-    }
+-}
+-
+-/**
+- * A pointer to an object protected by the epoch GC.
+- *
+- * The pointer is valid for use only during the scope `g`.
+- *
+- * The pointer must be properly aligned. Since it is aligned, a tag can be stored into the unused
+- * least significant bits of the address.
+- */
+-public class Shared<T : Pointable<T>>(public var data: Int = 0, public var marker: Unit = Unit) : Pointer<T>, From<T?>, fmt.Pointer<Shared<T>> {
+-    public fun clone(): Shared<T> {
+-        return Shared(this.data, this.marker)
+-    }
+-
+-    public override fun intoUsize(): Int {
+-        return this.data
+-    }
+-
+-    /**
+-     * Converts the pointer to a raw pointer (without the tag).
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import crossbeamepoch.Owned
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val o = Owned.new(1234)
+-     * val raw = ((o as Any?) as COpaquePointer?)
+-     * val a = Atomic.from(o)
+-     * val guard = epoch.pin()
+-     * val p = a.load(SeqCst, guard)
+-     * check(p.asRaw() == raw)
+-     * ```
+-     */
+-    public fun asRaw(): T? {
+-        val (raw, _) = decomposeTag<T>(this.data)
+-        return ((raw as Any?) as COpaquePointer?)
+-    }
+-
+-    /**
+-     * Returns `true` if the pointer is null.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import crossbeamepoch.Owned
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = null
+-     * val guard = epoch.pin()
+-     * check((a.load(SeqCst, guard) == null))
+-     * a.store(Owned.new(1234), SeqCst)
+-     * check(!(a.load(SeqCst, guard) == null))
+-     * ```
+-     */
+-    public fun isNull(): Boolean {
+-        val (raw, _) = decomposeTag<T>(this.data)
+-        return raw == 0
+-    }
+-
+-    /**
+-     * Dereferences the pointer.
+-     *
+-     * Returns a reference to the pointee that is valid during the scope `g`.
+-     *
+-     * # Safety
+-     *
+-     * Dereferencing a pointer is unchecked because it could be pointing to invalid memory.
+-     *
+-     * Another concern is the possibility of data races due to lack of proper synchronization.
+-     * For example, consider the following scenario:
+-     *
+-     * 1. A thread creates a new object: `a.store(Owned.new(10), Relaxed)`
+-     * 2. Another thread reads it: `* a.load(Relaxed, guard).asRef().unwrap()`
+-     *
+-     * The problem is that relaxed orderings don't synchronize initialization of the object with
+-     * the read from the second thread. This is a data race. A possible solution would be to use
+-     * `Release` and `Acquire` orderings.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.new(1234)
+-     * val guard = epoch.pin()
+-     * val p = a.load(SeqCst, guard)
+-     * run {
+-     *     check(p.deref() == 1234)
+-     * }
+-     * ```
+-     */
+-    public fun deref(derefTFn: (Any?) -> Any?): T {
+-        val (raw, _) = decomposeTag<T>(this.data)
+-        return derefTFn(raw)
+-    }
+-
+-    /**
+-     * Dereferences the pointer.
+-     *
+-     * Returns a mutable reference to the pointee that is valid during the scope `g`.
+-     *
+-     * # Safety
+-     *
+-     * * There is no guarantee that there are no more threads attempting to read/write from/to the
+-     *   actual object at the same time.
+-     *
+-     *   The user must know that there are no concurrent accesses towards the object itself.
+-     *
+-     * * Other than the above, all safety concerns of `deref()` applies here.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.new(mutableListOf(1, 2, 3, 4))
+-     * val guard = epoch.pin()
+-     * var p = a.load(SeqCst, guard)
+-     * run {
+-     *     check(!(p == null))
+-     *     val b = p.derefMut()
+-     *     check(b == mutableListOf(1, 2, 3, 4))
+-     *     b.push(5)
+-     *     check(b == mutableListOf(1, 2, 3, 4, 5))
+-     * }
+-     * val p1 = a.load(SeqCst, guard)
+-     * run {
+-     *     check(p1.deref() == mutableListOf(1, 2, 3, 4, 5))
+-     * }
+-     * ```
+-     */
+-    public fun derefMut(derefMutTFn: (Any?) -> Any?): T {
+-        val (raw, _) = decomposeTag<T>(this.data)
+-        return derefMutTFn(raw)
+-    }
+-
+-    /**
+-     * Converts the pointer to a reference.
+-     *
+-     * Returns `None` if the pointer is null, or else a reference to the object wrapped in `Some`.
+-     *
+-     * # Safety
+-     *
+-     * Dereferencing a pointer is unchecked because it could be pointing to invalid memory.
+-     *
+-     * Another concern is the possibility of data races due to lack of proper synchronization.
+-     * For example, consider the following scenario:
+-     *
+-     * 1. A thread creates a new object: `a.store(Owned.new(10), Relaxed)`
+-     * 2. Another thread reads it: `* a.load(Relaxed, guard).asRef().unwrap()`
+-     *
+-     * The problem is that relaxed orderings don't synchronize initialization of the object with
+-     * the read from the second thread. This is a data race. A possible solution would be to use
+-     * `Release` and `Acquire` orderings.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.new(1234)
+-     * val guard = epoch.pin()
+-     * val p = a.load(SeqCst, guard)
+-     * run {
+-     *     check(p == 1234)
+-     * }
+-     * ```
+-     */
+-    public fun asRef(derefTFn: (Any?) -> Any?): T? {
+-        val (raw, _) = decomposeTag<T>(this.data)
+-        return if (raw == 0) {
+-            null
+-        } else {
+-            derefTFn(raw)
+-        }
+-    }
+-
+-    /**
+-     * Takes ownership of the pointee.
+-     *
+-     * # Panics
+-     *
+-     * Panics if this pointer is null, but only in debug mode.
+-     *
+-     * # Safety
+-     *
+-     * This method may be called only if the pointer is valid and nobody else is holding a
+-     * reference to the same object.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.new(1234)
+-     * run {
+-     *     val guard = epoch.unprotected()
+-     *     val p = a.load(SeqCst, guard)
+-     *     drop(p.intoOwned())
+-     * }
+-     * ```
+-     */
+-    public fun intoOwned(): Owned<T> {
+-        check(!(this == null)) { "converting a null `Shared` into `Owned`" }
+-        return Owned.fromUsize(this.data)
+-    }
+-
+-    /**
+-     * Takes ownership of the pointee if it is not null.
+-     *
+-     * # Safety
+-     *
+-     * This method may be called only if the pointer is valid and nobody else is holding a
+-     * reference to the same object, or if the pointer is null.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.new(1234)
+-     * run {
+-     *     val guard = epoch.unprotected()
+-     *     val p = a.load(SeqCst, guard)
+-     *     when (val matchVal = p.tryIntoOwned()) {
+-     *         null -> {}
+-     *         else -> {
+-     *             val x = matchVal
+-     *             drop(x)
+-     *         }
+-     *     }
+-     * }
+-     * ```
+-     */
+-    public fun tryIntoOwned(): Owned<T>? {
+-        return if ((this == null)) {
+-            null
+-        } else {
+-            Owned.fromUsize(this.data)
+-        }
+-    }
+-
+-    /**
+-     * Returns the tag stored within the pointer.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import crossbeamepoch.Owned
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.from(Owned.new(0uL).withTag(2))
+-     * val guard = epoch.pin()
+-     * val p = a.load(SeqCst, guard)
+-     * check(p.tag() == 2)
+-     * ```
+-     */
+-    public fun tag(): Int {
+-        val (_, tag) = decomposeTag<T>(this.data)
+-        return tag
+-    }
+-
+-    /**
+-     * Returns the same pointer, but tagged with `tag`. `tag` is truncated to be fit into the
+-     * unused bits of the pointer to `T`.
+-     *
+-     * # Examples
+-     *
+-     * ```kotlin
+-     * import crossbeamepoch.Atomic
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * val a = Atomic.new(0uL)
+-     * val guard = epoch.pin()
+-     * val p1 = a.load(SeqCst, guard)
+-     * val p2 = p1.withTag(2)
+-     * check(p1.tag() == 0)
+-     * check(p2.tag() == 2)
+-     * check(p1.asRaw() == p2.asRaw())
+-     * ```
+-     */
+-    public fun withTag(tag: Int): Shared<T> {
+-        return Shared.fromUsize(composeTag<T>(this.data, tag))
+-    }
+-
+-    public fun eq(other: Shared<T>): Boolean {
+-        return this.data == other.data
+-    }
+-
+-    public fun partialCmp(other: Shared<T>): cmp.Ordering? {
+-        return this.data.partialCmp(other.data)
+-    }
+-
+-    public fun cmp(other: Shared<T>): cmp.Ordering {
+-        return this.data.cmp(other.data)
+-    }
+-
+-    public fun fmt(f: StringBuilder) {
+-        val (raw, tag) = decomposeTag<T>(this.data)
+-        DebugStruct(f, "Shared").field("raw", raw).field("tag", tag).finish()
+-    }
+-
+-    public fun fmtPointer(f: StringBuilder) {
+-        val (raw, _) = decomposeTag<T>(this.data)
+-        fmt.Pointer.fmt((((raw as Any?) as COpaquePointer?)), f)
+-    }
+-
+-    public companion object {
+-        public fun <Init, T : Pointable<T>> fromUsize(data: Int): Shared<T> {
+-            return Shared(data = data, marker = Unit)
+-        }
+-
+-        /**
+-         * Returns a new null pointer.
+-         *
+-         * # Examples
+-         *
+-         * ```kotlin
+-         * import crossbeamepoch.Shared
+-         *
+-         * val p = null
+-         * check((p == null))
+-         * ```
+-         */
+-        public fun <Init, T : Pointable<T>> nullVal(): Shared<T> {
+-            return Shared(data = 0, marker = Unit)
+-        }
+-
+-        /**
+-         * Returns a new pointer pointing to `raw`.
+-         *
+-         * # Panics
+-         *
+-         * Panics if `raw` is not properly aligned.
+-         *
+-         * # Examples
+-         *
+-         * ```kotlin
+-         * import crossbeamepoch.Shared
+-         *
+-         * val p = Shared.from(((Holder.intoRaw(1234) as Any?) as COpaquePointer?))
+-         * check(!(p == null))
+-         * ```
+-         */
+-        public fun <Init, T : Pointable<T>> from(raw: T?): Shared<T> {
+-            val raw1 = ((raw).hashCode().toLong()).toInt()
+-            ensureAligned<T>(raw1)
+-            return Shared.fromUsize(raw1)
+-        }
+-    }
+-}
+-
+-@Test
+-public fun validTagI8() {
+-    null.withTag(0)
+-}
+-
+-@Test
+-public fun validTagI64() {
+-    null.withTag(7)
+-}
+-
+-@Test
+-public fun constNull() {
+-    var A: Atomic<UByte> = null
+-    var S: Unit = run {
+-        val shared = null
+-    }
+-}
+-
+-@Test
+-public fun arrayInit() {
+-    var owned = Owned.init(10)
+-    val arr: List<Int?> = owned
+-    arr[arr.size - 1].write(20)
+-    check(arr.size == 10)
+-}
+-
+-@Test
+-public fun formatNull() {
+-    val atomic = null
+-    check("$atomic" == "0x0")
+-    val atomic1 = null
+-    check("$atomic" == "0x0")
+-    val shared = null
+-    check("$shared" == "0x0")
+-    val shared1 = null
+-    check("$shared" == "0x0")
+-}
++        public fun <T : Any> nullPointer(alignment: Int = 8): Atomic<T> = Atomic(Shared.nullPointer(alignment))
++        public fun <T : Any> from(pointer: Pointer<T>): Atomic<T> = Atomic(pointer.publish())
++    }
++}
++
++private fun validateRmw(order: Ordering) {
++    check(order in Ordering.entries)
++}
++private fun validateCompare(success: Ordering, failure: Ordering) {
++    require(failure != Ordering.Release && failure != Ordering.AcqRel) { "Invalid compare/exchange failure ordering" }
++    require(
++        when (failure) {
++            Ordering.SeqCst -> success == Ordering.SeqCst
++            Ordering.Acquire -> success == Ordering.Acquire || success == Ordering.AcqRel || success == Ordering.SeqCst
++            else -> true
++        },
++    ) { "Failure ordering is stronger than success ordering" }
++}

@@ -1,0 +1,10 @@
+{
+  "event": "Expected-native-SHA preflight aborted a regeneration pass before the source-deletion loop.",
+  "expected_sha256": "c5d5e0a9246fc466a1b01e8827499cad1328c3c0ba3d788187ee4bbbb2227e74",
+  "observed_release_sha256": "694b9ce9e25803dac2661ee3cc8ffe7aa3e9e504fcb5afdd4dde588435703d87",
+  "observed_alias_sha256": "b10da8f66c47d0c7d1b3822ea2b6335bb85ecf8fdaef4516da483e6e223a59b3",
+  "exact_assertion": "AssertionError: Unexpected translator binary",
+  "source_changed_by_aborted_pass": false,
+  "resolution": "Parent/foundation owner supplied verified current native debug executable SHA78103b321ab42b1438b796bef445c33a8ff53a2d6b2d56515cc7e96a6936a418 and receipt in rust-lang-kotlin/verification/direct-layout-20261111/receipt.json. Subsequent direct pass checked that SHA before and after generation.",
+  "qualification": "Factual event record from tool outputs and guard order; the redirected assertion log was overwritten by the later successful run, so this is not presented as an original preserved log."
+}

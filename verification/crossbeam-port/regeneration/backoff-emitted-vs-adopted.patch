@@ -1,0 +1,331 @@
+--- build/verification/regenerated-kexe/backoff/Backoff.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/backoff/Backoff.kt
+@@ -1,36 +1,11 @@
+ // port-lint: source crossbeam-utils/src/backoff.rs
+ package io.github.kotlinmania.crossbeam.utils.backoff
+ 
+-import io.github.kotlinmania.crossbeam.primitive.hint
++import io.github.kotlinmania.crossbeam.utils.platform.spinLoop
++import io.github.kotlinmania.crossbeam.utils.platform.yieldThread
+ 
+-public class DebugStruct(
+-    private val out: StringBuilder,
+-    private val name: String,
+-) {
+-    private val fields: MutableList<String> = mutableListOf()
+-
+-    public fun field(name: String, value: Any?): DebugStruct =
+-        apply {
+-            fields.add("$name: $value")
+-        }
+-
+-    public fun finish() {
+-        if (fields.isEmpty()) {
+-            out.append(name)
+-        } else {
+-            out.append("$name { ${fields.joinToString(", ")} }")
+-        }
+-    }
+-
+-    public fun finishNonExhaustive() {
+-        fields.add("..")
+-        finish()
+-    }
+-}
+-
+-public val SPIN_LIMIT: UInt = 6u
+-
+-public val YIELD_LIMIT: UInt = 10u
++private const val SPIN_LIMIT = 6
++private const val YIELD_LIMIT = 10
+ 
+ /**
+  * Performs exponential backoff in spin loops.
+@@ -47,75 +22,58 @@
+  * Backing off in a lock-free loop:
+  *
+  * ```kotlin
+- * import crossbeamutils.Backoff
+- * import std.sync.atomic.AtomicUsize
+- * import std.sync.atomic.ordering.SeqCst
+- *
+- * fun fetchMul(a: AtomicUsize, b: Int): Int {
+- *     val backoff = Backoff.new()
++ * import io.github.kotlinmania.crossbeam.utils.backoff.Backoff
++ * import kotlin.concurrent.atomics.AtomicInt
++ * 
++ * fun fetchMul(a: AtomicInt, b: Int): Int {
++ *     val backoff = Backoff()
+  *     while (true) {
+- *         val value = a.load(SeqCst)
+- *         if (a.compareExchange(value, value.wrappingMul(b), SeqCst, SeqCst).isOk()) {
+- *             return value
+- *         }
++ *         val value = a.load()
++ *         if (a.compareAndSet(value, value * b)) return value
+  *         backoff.spin()
+  *     }
+  * }
+  * ```
+  *
+- * Waiting for an [AtomicBool] to become `true`:
++ * Waiting for an atomic boolean to become `true`:
+  *
+  * ```kotlin
+- * import crossbeamutils.Backoff
+- * import std.sync.atomic.AtomicBool
+- * import std.sync.atomic.ordering.SeqCst
++ * fun spinWait(ready: () -> Boolean) {
++ *     val backoff = Backoff()
++ *     while (!ready()) backoff.snooze()
++ * }
++ * ```
+  *
+- * fun spinWait(ready: AtomicBool) {
+- *     val backoff = Backoff.new()
+- *     while (!ready.load(SeqCst)) {
+- *         backoff.snooze()
++ * Waiting for an atomic boolean to become `true` and parking the thread after a long wait.
++ * Note that whoever sets the atomic variable to `true` must notify the parked thread by calling
++ * a matching unpark operation:
++ *
++ * ```kotlin
++ * fun blockingWait(ready: () -> Boolean, park: () -> Unit) {
++ *     val backoff = Backoff()
++ *     while (!ready()) {
++ *         if (backoff.isCompleted()) park() else backoff.snooze()
+  *     }
+  * }
+  * ```
+  *
+- * Waiting for an [AtomicBool] to become `true` and parking the thread after a long wait.
+- * Note that whoever sets the atomic variable to `true` must notify the parked thread by calling
+- * [unpark]:
+- *
+- * ```kotlin
+- * import crossbeamutils.Backoff
+- * import std.sync.atomic.AtomicBool
+- * import std.sync.atomic.ordering.SeqCst
+- *
+- * fun blockingWait(ready: AtomicBool) {
+- *     val backoff = Backoff.new()
+- *     while (!ready.load(SeqCst)) {
+- *         if (backoff.isCompleted()) {
+- *             thread.park()
+- *         } else {
+- *             backoff.snooze()
+- *         }
+- *     }
+- * }
+- * ```
+- *
+- * [isCompleted]: Backoff::isCompleted
++ * [isCompleted]: isCompleted
+  */
+-public open class Backoff(public var step: Cell<UInt>) {
++public class Backoff {
++    private var step: Int = 0
++
+     /**
+      * Resets the `Backoff`.
+      *
+      * # Examples
+      *
+      * ```kotlin
+-     * import crossbeamutils.Backoff
+-     *
+-     * val backoff = Backoff.new()
++     * val backoff = Backoff()
+      * backoff.reset()
+      * ```
+      */
+-    public open fun reset() {
+-        this.step.set(0)
++    public fun reset() {
++        step = 0
+     }
+ 
+     /**
+@@ -131,32 +89,22 @@
+      * Backing off in a lock-free loop:
+      *
+      * ```kotlin
+-     * import crossbeamutils.Backoff
+-     * import std.sync.atomic.AtomicUsize
+-     * import std.sync.atomic.ordering.SeqCst
+-     *
+-     * fun fetchMul(a: AtomicUsize, b: Int): Int {
+-     *     val backoff = Backoff.new()
++     * import io.github.kotlinmania.crossbeam.utils.backoff.Backoff
++     * import kotlin.concurrent.atomics.AtomicInt
++     * 
++     * fun fetchMul(a: AtomicInt, b: Int): Int {
++     *     val backoff = Backoff()
+      *     while (true) {
+-     *         val value = a.load(SeqCst)
+-     *         if (a.compareExchange(value, value.wrappingMul(b), SeqCst, SeqCst).isOk()) {
+-     *             return value
+-     *         }
++     *         val value = a.load()
++     *         if (a.compareAndSet(value, value * b)) return value
+      *         backoff.spin()
+      *     }
+      * }
+-     * val a = AtomicUsize.new(7)
+-     * check(fetchMul(a, 8) == 7)
+-     * check(a.load(SeqCst) == 56)
+      * ```
+      */
+-    public open fun spin() {
+-        for (unused in 0 until 1 shl this.step.get().min(SPIN_LIMIT).toInt()) {
+-            hint.spinLoop()
+-        }
+-        if (this.step.get() <= SPIN_LIMIT) {
+-            this.step.set(this.step.get() + 1)
+-        }
++    public fun spin() {
++        repeat(1 shl minOf(step, SPIN_LIMIT)) { spinLoop() }
++        if (step <= SPIN_LIMIT) step += 1
+     }
+ 
+     /**
+@@ -167,54 +115,32 @@
+      * The processor may yield using the *YIELD* or *PAUSE* instruction and the current thread
+      * may yield by giving up a timeslice to the OS scheduler.
+      *
+-     * In `@noStd` environments, this method is equivalent to [spin].
++     * On single-threaded JS/Wasm runtimes, OS yielding is unavailable.
+      *
+      * If possible, use [isCompleted] to check when it is advised to stop using backoff and
+      * block the current thread using a different synchronization mechanism instead.
+      *
+-     * [spin]: Backoff::spin
+-     * [isCompleted]: Backoff::isCompleted
++     * [spin]: spin
++     * [isCompleted]: isCompleted
+      *
+      * # Examples
+      *
+-     * Waiting for an [AtomicBool] to become `true`:
++     * Waiting for an atomic boolean to become `true`:
+      *
+      * ```kotlin
+-     * import crossbeamutils.Backoff
+-     * import std.sync.atomic.AtomicBool
+-     * import std.sync.atomic.ordering.SeqCst
+-     * import std.time.Duration
+-     *
+-     * fun spinWait(ready: AtomicBool) {
+-     *     val backoff = Backoff.new()
+-     *     while (!ready.load(SeqCst)) {
+-     *         backoff.snooze()
+-     *     }
++     * fun spinWait(ready: () -> Boolean) {
++     *     val backoff = Backoff()
++     *     while (!ready()) backoff.snooze()
+      * }
+-     * val ready = AtomicBool.new(false)
+-     * val ready2 = ready.clone()
+-     * thread.spawn({
+-     *     thread.sleep(Duration.fromMillis(100))
+-     *     ready2.store(true, SeqCst)
+-     * })
+-     * check(ready.load(SeqCst) == false)
+-     * spinWait(ready)
+-     * check(ready.load(SeqCst) == true)
+      * ```
+      */
+-    public open fun snooze() {
+-        if (this.step.get() <= SPIN_LIMIT) {
+-            for (unused in 0 until 1 shl this.step.get().toInt()) {
+-                hint.spinLoop()
+-            }
++    public fun snooze() {
++        if (step <= SPIN_LIMIT) {
++            repeat(1 shl step) { spinLoop() }
+         } else {
+-            for (unused1 in 0 until 1 shl this.step.get().toInt()) {
+-                hint.spinLoop()
+-            }
++            yieldThread()
+         }
+-        if (this.step.get() <= YIELD_LIMIT) {
+-            this.step.set(this.step.get() + 1)
+-        }
++        if (step <= YIELD_LIMIT) step += 1
+     }
+ 
+     /**
+@@ -222,63 +148,23 @@
+      *
+      * # Examples
+      *
+-     * Waiting for an [AtomicBool] to become `true` and parking the thread after a long wait:
++     * Waiting for an atomic boolean to become `true` and parking the thread after a long wait:
+      *
+      * ```kotlin
+-     * import crossbeamutils.Backoff
+-     * import std.sync.atomic.AtomicBool
+-     * import std.sync.atomic.ordering.SeqCst
+-     * import std.time.Duration
+-     *
+-     * fun blockingWait(ready: AtomicBool) {
+-     *     val backoff = Backoff.new()
+-     *     while (!ready.load(SeqCst)) {
+-     *         if (backoff.isCompleted()) {
+-     *             thread.park()
+-     *         } else {
+-     *             backoff.snooze()
+-     *         }
++     * fun blockingWait(ready: () -> Boolean, park: () -> Unit) {
++     *     val backoff = Backoff()
++     *     while (!ready()) {
++     *         if (backoff.isCompleted()) park() else backoff.snooze()
+      *     }
+      * }
+-     * val ready = AtomicBool.new(false)
+-     * val ready2 = ready.clone()
+-     * val waiter = thread.current()
+-     * thread.spawn({
+-     *     thread.sleep(Duration.fromMillis(100))
+-     *     ready2.store(true, SeqCst)
+-     *     waiter.unpark()
+-     * })
+-     * check(ready.load(SeqCst) == false)
+-     * blockingWait(ready)
+-     * check(ready.load(SeqCst) == true)
+      * ```
+      */
+-    public open fun isCompleted(): Boolean {
+-        return this.step.get() > YIELD_LIMIT
+-    }
++    public fun isCompleted(): Boolean = step > YIELD_LIMIT
+ 
+-    public open fun fmt(f: StringBuilder) {
+-        DebugStruct(f, "Backoff").field("step", this.step).field("is_completed", this.isCompleted()).finish()
+-    }
++    override fun toString(): String = "Backoff { step: $step, is_completed: ${isCompleted()} }"
+ 
+     public companion object {
+-        /**
+-         * Creates a new `Backoff`.
+-         *
+-         * # Examples
+-         *
+-         * ```kotlin
+-         * import crossbeamutils.Backoff
+-         *
+-         * val backoff = Backoff.new()
+-         * ```
+-         */
+-        public fun new(): Backoff {
+-            return Backoff(step = Cell.new(0))
+-        }
+-
+-        public fun default(): Backoff {
+-            return Backoff.new()
+-        }
++        public fun new(): Backoff = Backoff()
++        public fun default(): Backoff = Backoff()
+     }
+ }

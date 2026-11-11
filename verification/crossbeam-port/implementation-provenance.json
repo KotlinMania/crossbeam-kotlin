@@ -1,0 +1,695 @@
+{
+  "scope": "Current manual algorithm/test files were removed and actual new native-kexe source/test artifacts were emitted directly into real paths. Metadata currently fails; no equivalence or runtime claim.",
+  "sources": [
+    "Original integrator candid handoff on 2026-11-11.",
+    "Current source/candidate hash comparison.",
+    "build/reports/crossbeam-port/utils-source-translation.json and epoch/deque translation.log."
+  ],
+  "test_and_doctest_provenance": "Manually translated/adapted original Rust bodies into Kotlin test infrastructure; no byte-exact generated-test adoption claim. Assertions and API fidelity require independent body-by-body review.",
+  "runtime_bridge_provenance": "kexe generated companions from hand-authored platform_inline.rs and monitor_inline.rs, not upstream Crossbeam sources. Other companions have manual loader/header/package/backend repairs.",
+  "byte_exact_current_bridge_files": [
+    {
+      "adopted": "src/native/interop/cinterop/utils_platform_ffi_wrapper.h",
+      "raw": [
+        "build/verification/platform-inline-generated/src/native/interop/cinterop/utils_platform_ffi_wrapper.h"
+      ],
+      "sha256": "e1d925a08f8a782c1a3ea37cb2d9291d8efdb717134f7868ef7726df55a94c3c"
+    },
+    {
+      "adopted": "src/native/interop/cinterop/UtilsSyncMonitorFfi.def",
+      "raw": [
+        "build/verification/monitor-inline-generated/src/native/interop/cinterop/UtilsSyncMonitorFfi.def"
+      ],
+      "sha256": "ae1d07a27259f2122b1b8395994674d57e7e289dfaa1ac605a5a727400da7cbf"
+    },
+    {
+      "adopted": "src/native/interop/cinterop/UtilsPlatformFfi.def",
+      "raw": [
+        "build/verification/platform-inline-generated/src/native/interop/cinterop/UtilsPlatformFfi.def"
+      ],
+      "sha256": "e9b20cc055c93d34962104fe612e5fc04d0f060b13dce7cad917f0ed5dc5699c"
+    },
+    {
+      "adopted": "src/native/interop/cinterop/utils_sync_monitor_ffi_wrapper.c",
+      "raw": [
+        "build/verification/monitor-inline-generated/src/native/interop/cinterop/utils_sync_monitor_ffi_wrapper.c"
+      ],
+      "sha256": "51e43150cf6eabf22093aca660f60500d9192300b732419bbd1da3eb72c4f57b"
+    },
+    {
+      "adopted": "src/native/interop/cinterop/utils_platform_ffi_wrapper.c",
+      "raw": [
+        "build/verification/platform-inline-generated/src/native/interop/cinterop/utils_platform_ffi_wrapper.c"
+      ],
+      "sha256": "f4ca05807db53f4eae9b1e985e7416ec5640b9fb308c371c7b395db8b449da9e"
+    },
+    {
+      "adopted": "src/native/interop/cinterop/utils_sync_monitor_ffi_wrapper.h",
+      "raw": [
+        "build/verification/monitor-inline-generated/src/native/interop/cinterop/utils_sync_monitor_ffi_wrapper.h"
+      ],
+      "sha256": "894027b612c2e3fa09daff9f9b273bce4748b06ffc0a81869255f97f41dc7bd1"
+    },
+    {
+      "adopted": "src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiNativeActuals.kt",
+      "raw": [
+        "build/verification/platform-inline-generated/src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/platform/ffi/FfiNativeActuals.kt"
+      ],
+      "sha256": "24e08d0430af7cd2f5c2d02054a2a257eca984229894ea0eaca6267f343039cb"
+    },
+    {
+      "adopted": "src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiNativeActuals.kt",
+      "raw": [
+        "build/verification/monitor-inline-generated/src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/ffi/FfiNativeActuals.kt"
+      ],
+      "sha256": "a1cdfee73ab348abd1685156748dcbf18dd8e49b358de22102e45445fb215632"
+    },
+    {
+      "adopted": "src/js/node-ffi/src/crossbeam_utils_sync_monitor_ffi_bindings.cpp",
+      "raw": [
+        "build/verification/monitor-inline-generated/src/js/node-crossbeam/src/crossbeam_utils_sync_monitor_ffi_bindings.cpp"
+      ],
+      "sha256": "ab2556b35dc0d68283ae6f31ef90baf146a470e51c3c1f222e7b59a4d8f99ccd"
+    },
+    {
+      "adopted": "src/js/node-ffi/src/ffi_bindings.cpp",
+      "raw": [
+        "build/verification/platform-inline-generated/src/js/node-crossbeam/src/crossbeam_utils_platform_ffi_bindings.cpp"
+      ],
+      "sha256": "f816ca8b6bd5af6cb454a82e9ed34bf8f6a8073396cbe7ed56a05d19f6c0b0f1"
+    }
+  ],
+  "unimplemented_utils": [
+    "AtomicCell",
+    "AtomicConsume",
+    "CachePadded",
+    "OnceLock standalone module",
+    "Parker",
+    "ShardedLock",
+    "scoped thread module"
+  ],
+  "limits": [
+    "Raw Pointable allocator ABI is not implemented.",
+    "Implicit Rust Drop and arbitrary-thread TLS-exit destruction are not implemented.",
+    "Managed ownership/lifetime contracts are explicit adaptations, not a shared raw Rust ABI."
+  ],
+  "historical_pre_reset_modules": [
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Injector.kt",
+      "classification": "manually integrated/adapted from Rust after kexe candidate generation; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Steal.kt",
+      "classification": "manually integrated/adapted from Rust after kexe candidate generation; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Stealer.kt",
+      "classification": "manually integrated/adapted from Rust after kexe candidate generation; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Worker.kt",
+      "classification": "manually integrated/adapted from Rust after kexe candidate generation; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Atomic.kt",
+      "classification": "manually integrated/adapted from Rust after kexe candidate generation; managed lifetime/runtime adaptation; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Collector.kt",
+      "classification": "manually integrated/adapted from Rust after kexe candidate generation; managed lifetime/runtime adaptation; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Default.kt",
+      "classification": "manually integrated/adapted from Rust after kexe candidate generation; managed lifetime/runtime adaptation; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Deferred.kt",
+      "classification": "manually integrated/adapted from Rust after kexe candidate generation; managed lifetime/runtime adaptation; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Epoch.kt",
+      "classification": "manually integrated/adapted from Rust after kexe candidate generation; managed lifetime/runtime adaptation; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Guard.kt",
+      "classification": "manually integrated/adapted from Rust after kexe candidate generation; managed lifetime/runtime adaptation; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Internal.kt",
+      "classification": "manually integrated/adapted from Rust after kexe candidate generation; managed lifetime/runtime adaptation; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/List.kt",
+      "classification": "manually integrated/adapted from Rust after kexe candidate generation; managed lifetime/runtime adaptation; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Queue.kt",
+      "classification": "manually integrated/adapted from Rust after kexe candidate generation; managed lifetime/runtime adaptation; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLock.kt",
+      "classification": "Rust-derived manual implementation and common/actual source partition; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/seqLock32Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLockWide.kt",
+      "classification": "Rust-derived manual implementation and common/actual source partition; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/seqLock32Test/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLockWideTests.kt",
+      "classification": "Rust-derived manual implementation and common/actual source partition; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/seqLock64Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLock.kt",
+      "classification": "Rust-derived manual implementation and common/actual source partition; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/seqLock64Test/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLockTests.kt",
+      "classification": "Rust-derived manual implementation and common/actual source partition; not byte-exact generated output"
+    },
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/backoff/Backoff.kt",
+      "classification": "Fresh native-kexe output actually adopted, then narrow documented repairs; see regeneration/backoff-adoption.json. Not byte-exact emitted output or full equivalence proof."
+    },
+    {
+      "file": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroup.kt",
+      "classification": "hand-ported Rust-derived implementation with explicit Kotlin ownership and OS monitor integration; not byte-exact generated output"
+    }
+  ],
+  "current_emitted_files": [
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/benches/atomic_cell.rs",
+      "adopted": "src/common/commonBenchmark/kotlin/io/github/kotlinmania/crossbeam/utils/benches/atomiccell/AtomicCell.kt",
+      "native_emitted_sha256_before_repairs": "d9cbaccc718a09bacdbd4b187c550f9e8fa16f0d869ab439ce120de8cd36cb55",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/src/atomic/consume.rs",
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/consume/Consume.kt",
+      "native_emitted_sha256_before_repairs": "ad8ec5410ae3f9606b3699b6e3812b54e5626c16a7657f91af2104c707334a13",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/src/atomic/seq_lock.rs",
+      "adopted": "src/common/seqLock64Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLock.kt",
+      "native_emitted_sha256_before_repairs": "88c1371e13bae362447c973d5b6f35e05b1872a17836c5fdab210d345f1bd654",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/src/atomic/seq_lock_wide.rs",
+      "adopted": "src/common/seqLock32Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlockwide/SeqLockWide.kt",
+      "native_emitted_sha256_before_repairs": "65788844eb42420a2cbaa77b6a9525edb11f1272794c5d9092a1228b7e2e0b82",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/src/backoff.rs",
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/backoff/Backoff.kt",
+      "native_emitted_sha256_before_repairs": "80c2d59e94fe9f135b89d52bd10eaf9ae4143d35493a5a7f4d2c4b9ce2c7d102",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/src/cache_padded.rs",
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/cachepadded/CachePadded.kt",
+      "native_emitted_sha256_before_repairs": "09f9ac675ed0497bb4a3ae890de20343dcdc0334f2783eae2c0cf5650462f7c8",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/src/sync/once_lock.rs",
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/oncelock/OnceLock.kt",
+      "native_emitted_sha256_before_repairs": "f754741c02efa7d58a1cb7c33af47a557531c9e5388bf42d0d1bbea3b39e37c9",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/src/sync/parker.rs",
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/parker/Parker.kt",
+      "native_emitted_sha256_before_repairs": "29b34d8024a47ce1aece81229b094339661621287ded69b63eabc0044d9a933d",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/src/sync/sharded_lock.rs",
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/shardedlock/ShardedLock.kt",
+      "native_emitted_sha256_before_repairs": "f1d890b8bc8471fe443e19a088b8eb242857f6d4b66a5b2c14d5e2a2b48d6349",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/src/thread.rs",
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/thread/Thread.kt",
+      "native_emitted_sha256_before_repairs": "74761205889fd4c9f9bb7ef3bb43d2345fee603211176975907e4ae1a1bbc42c",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/tests/atomic_cell.rs",
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/atomiccell/AtomicCell.kt",
+      "native_emitted_sha256_before_repairs": "1fea7a726bdb528ba3b360aa086e4f2ca0fc6bf0c2540d779e817458d09bb289",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/tests/cache_padded.rs",
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/cachepadded/CachePadded.kt",
+      "native_emitted_sha256_before_repairs": "4c500c9f7ac062166ada80aa6e737bf18f702821a3e33d04f58749c02dfbcb7b",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/tests/parker.rs",
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/parker/Parker.kt",
+      "native_emitted_sha256_before_repairs": "b4b4dae3a605ff10456d13df856787fdd64fcdebeba0e526bdea110a1dde6a5c",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/tests/sharded_lock.rs",
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+      "native_emitted_sha256_before_repairs": "7b9725b79d7be0c4f622dfcb0379278573b4d34f39883c5fadc15a04fca779f3",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/tests/thread.rs",
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/thread/Thread.kt",
+      "native_emitted_sha256_before_repairs": "8f56969ac94ec9cce767eeeacf9f99de310fd50c76c702aaa4e192d28b283036",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/tests/wait_group.rs",
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/waitgroup/WaitGroup.kt",
+      "native_emitted_sha256_before_repairs": "ee5381943fe49e1100ee22b7e3f02d193ad0424858c3f57eef67e9988663c4dd",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/benches/defer.rs",
+      "adopted": "src/common/commonBenchmark/kotlin/io/github/kotlinmania/crossbeam/epoch/benches/defer/Defer.kt",
+      "native_emitted_sha256_before_repairs": "be70ec16267cae814e7afbecfa90a41c56b90294426310df665593d725488254",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/benches/flush.rs",
+      "adopted": "src/common/commonBenchmark/kotlin/io/github/kotlinmania/crossbeam/epoch/benches/flush/Flush.kt",
+      "native_emitted_sha256_before_repairs": "44fd7e3331fb2d75bfd7dfc7c14d927f381a4f090c74604a1bf59481025fa9d7",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/benches/pin.rs",
+      "adopted": "src/common/commonBenchmark/kotlin/io/github/kotlinmania/crossbeam/epoch/benches/pin/Pin.kt",
+      "native_emitted_sha256_before_repairs": "2b59659b90cd6d02e1218ba210a35cb17daf2afe71ef8a3b12bcb432b97bbcd6",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/examples/sanitize.rs",
+      "adopted": "examples/kotlin/io/github/kotlinmania/crossbeam/epoch/examples/sanitize/Sanitize.kt",
+      "native_emitted_sha256_before_repairs": "8fe60a6acfa228d4d4650c223add7831f8883b89dca3454995a43ecb27f8ad7f",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/atomic.rs",
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/atomic/Atomic.kt",
+      "native_emitted_sha256_before_repairs": "de830e4802c66342404439ded6c9bb50951c65dd3d4530a453436f4d4df1d4ac",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/default.rs",
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/default/Default.kt",
+      "native_emitted_sha256_before_repairs": "9938859b261fbe2ea6fed2fea8fee48c80e69c2950cafbc8ca567cf933ca88ba",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/deferred.rs",
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/deferred/Deferred.kt",
+      "native_emitted_sha256_before_repairs": "a3abe516b2b7e2222464c928e02178672ec1a97e9297e060e1f2bf628eb88203",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/epoch.rs",
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/epoch/Epoch.kt",
+      "native_emitted_sha256_before_repairs": "b6f722f1f193ec08290c09a3ecc2151f7df4aed6f87c7bb27e40932c5162d671",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/sync/list.rs",
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/list/List.kt",
+      "native_emitted_sha256_before_repairs": "9c6985783045debb443ea09ec6ce342738d13cbd6c1b362d56351431925eb230",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/sync/once_lock.rs",
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/oncelock/OnceLock.kt",
+      "native_emitted_sha256_before_repairs": "0c1d8049e0918e5ce0b3ad408302398077465bf1c193200b499f19b706454a88",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/sync/queue.rs",
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/Queue.kt",
+      "native_emitted_sha256_before_repairs": "a650b90a8aa1b58a4a73032ff04e9ceb32d5e3f1a715f5da0012c66c2239e18c",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-deque/src/deque.rs",
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Deque.kt",
+      "native_emitted_sha256_before_repairs": "6ded95bea9a133997e8c3ef12b79e380642f5dbe252ada74b6035799f54fe31f",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-deque/tests/fifo.rs",
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/fifo/Fifo.kt",
+      "native_emitted_sha256_before_repairs": "b34578c934d1f6947a9be6b5815094437e26d74e49143a6a841b87abdc9c52ed",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-deque/tests/injector.rs",
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/injector/Injector.kt",
+      "native_emitted_sha256_before_repairs": "a8c398668dbe638ff4e7b7fd4e38e762cf21907c313bf82171228d85d8a89603",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-deque/tests/lifo.rs",
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/lifo/Lifo.kt",
+      "native_emitted_sha256_before_repairs": "6c17ac4670fbebda37c70c073f70bf370f3c8570fa426da4cd233d0a3e06ba57",
+      "direct_native_output": true
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-deque/tests/steal.rs",
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/tests/steal/Steal.kt",
+      "native_emitted_sha256_before_repairs": "6ecdc93aee03418535fc0caf1a3812d6ddcdee564dde4a15102a8469edb4c344",
+      "direct_native_output": true
+    }
+  ],
+  "current_repairs": [
+    {
+      "adopted": "src/common/seqLock64Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLock.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-SeqLock-5acdf5c134.patch",
+      "adopted_sha256": "ced4f27835d3373b303c96caf7201389731124408177f4d8ee7e56c34568c300"
+    },
+    {
+      "adopted": "src/common/seqLock32Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlockwide/SeqLockWide.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-SeqLockWide-b478d13557.patch",
+      "adopted_sha256": "3d59f8504eb8d8f1d8188da911f73ee484fcce56a90795d931a847da664103bb"
+    },
+    {
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/backoff/Backoff.kt",
+      "operations": [
+        "Backoff bounded Cell<u32> scalar/private visibility, actual spin/yield adapters, literal/range fixes, original std branch, nested Cell Debug rendering and explicit documentation limits. See exact diff."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Backoff-7c86c5b9c5.patch",
+      "adopted_sha256": "8b2735458d81e4ae220c19fc0e32c099171bc1f5541e62b1cbd8165d6ba70ba6"
+    },
+    {
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/shardedlock/ShardedLock.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-ShardedLock-f2a1af5b71.patch",
+      "adopted_sha256": "d88746f32d0bbdde653b90e6a1554cc38b117d8b28b014823689c3c58105d85b"
+    },
+    {
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/thread/Thread.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Thread-13bc28e22a.patch",
+      "adopted_sha256": "abf2bfe42b37963ebf0eb18265b6253a4aeca3a7c36f994771b0b0628014695e"
+    },
+    {
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/cachepadded/CachePadded.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-CachePadded-ffe9ecdbfb.patch",
+      "adopted_sha256": "d2f990a577104779a3bf59ea35eb9d7dd339cc9c8515052c7ae3774efd59a23b"
+    },
+    {
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/parker/Parker.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Parker-592b58c57e.patch",
+      "adopted_sha256": "356c93cc6890b14f615db9030385252be04363a8516d807af17f62580dc80eea"
+    },
+    {
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/shardedlock/ShardedLock.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-ShardedLock-f58bfeba92.patch",
+      "adopted_sha256": "18b9c187578a3b015c99925e0e398562b1131ffef161b68734e73023ff705d89"
+    },
+    {
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/waitgroup/WaitGroup.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names.",
+        "Original emitted test calls follow necessary JVM-safe method name; assertions unchanged."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-WaitGroup-2263be5752.patch",
+      "adopted_sha256": "42a158c06f4fa64d7867cc94465acddc5318f051f8656830d70e47a06f10703f"
+    },
+    {
+      "adopted": "src/common/commonBenchmark/kotlin/io/github/kotlinmania/crossbeam/epoch/benches/defer/Defer.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names.",
+        "Canonical source-explicit crossbeam thread scope function placement."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Defer-f0caf82e3e.patch",
+      "adopted_sha256": "105399738d4f580190f241006f17d629229f503e7d6d69b4da8e1b5ee608652c"
+    },
+    {
+      "adopted": "src/common/commonBenchmark/kotlin/io/github/kotlinmania/crossbeam/epoch/benches/flush/Flush.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names.",
+        "Canonical source-explicit crossbeam thread scope function placement."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Flush-fff3dcc012.patch",
+      "adopted_sha256": "b7bbcfa6e895f1346b8f208460c6f7168643772f2f067cc3fd0e12d573162e68"
+    },
+    {
+      "adopted": "src/common/commonBenchmark/kotlin/io/github/kotlinmania/crossbeam/epoch/benches/pin/Pin.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names.",
+        "Canonical source-explicit crossbeam thread scope function placement."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Pin-0572a23bfe.patch",
+      "adopted_sha256": "1b794069045666b6a1130bf6e90a09bfa0e98d62ba8172cc666f6919ec70d85d"
+    },
+    {
+      "adopted": "examples/kotlin/io/github/kotlinmania/crossbeam/epoch/examples/sanitize/Sanitize.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Sanitize-9121c618f4.patch",
+      "adopted_sha256": "80aa88ff0436671d76cfb3745a5c3685fcc8dffade445559f9ef31f747158e7a"
+    },
+    {
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/atomic/Atomic.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Atomic-bf0f4ef9d0.patch",
+      "adopted_sha256": "c20c4f26b8df10ea1257aafcb57e5c098ab61ea2c30674d5e1501c89041db583"
+    },
+    {
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/default/DefaultInlineTests.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names.",
+        "Canonical source-explicit crossbeam thread scope function placement."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-DefaultInlineTests-c993c09c1c.patch",
+      "adopted_sha256": "2996bbf7727b4c5c3763ad3200c6b6846d289e4a525cfd67f09f6ab3749a408a"
+    },
+    {
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/list/List.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names.",
+        "Canonical source-explicit crossbeam thread scope function placement."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-List-1a22d9386f.patch",
+      "adopted_sha256": "1e71528c90351a2422032baf7c38f65c484b12ecd4813d65bef7cdf9912c4917"
+    },
+    {
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/list/ListInlineTests.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names.",
+        "Canonical source-explicit crossbeam thread scope function placement."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-ListInlineTests-249cdb1d74.patch",
+      "adopted_sha256": "86a85b5d837ee863e44dff8f23075a9a62ae3042766ba305aa1bc8dffe0d0d57"
+    },
+    {
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/Queue.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names.",
+        "Canonical source-explicit crossbeam thread scope function placement."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Queue-f1ffac8739.patch",
+      "adopted_sha256": "e4d10467593fd8ba04a4ab311100fdae26bbcba084cc9cc9259ee7e0441daf20"
+    },
+    {
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/QueueInlineTests.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names.",
+        "Canonical source-explicit crossbeam thread scope function placement."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-QueueInlineTests-b756ac1a87.patch",
+      "adopted_sha256": "8208f2f4af91d4074f89759b5371a2d838b700fdfaf5cecf089860fafffb33bb"
+    },
+    {
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Deque.kt",
+      "operations": [
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names.",
+        "Canonical epoch free-function namespace placement only."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Deque-deb79027ac.patch",
+      "adopted_sha256": "2a8b1bbfe576055a5b3b07ebc3bc072be4bc9c9c5890844e85f0acfd789d7e70"
+    }
+  ],
+  "current_backoff": "verification/crossbeam-port/regeneration/backoff-adoption.json",
+  "removed_manual_files": [
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Injector.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Steal.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Worker.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Stealer.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Epoch.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Internal.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Guard.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Default.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Atomic.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Collector.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/List.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Queue.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/Deferred.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLock.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroup.kt",
+    "src/native/nativeMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorNative.kt",
+    "src/js/wasm/wasmJsMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorWasmJs.kt",
+    "src/js/wasm/wasmWasiMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorWasmWasi.kt",
+    "src/js/jsMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorJs.kt",
+    "src/jvm/jvmMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorJvm.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/NoThreadsMonitor.kt",
+    "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/Monitor.kt",
+    "src/android/jvm/androidMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/monitor/MonitorAndroid.kt",
+    "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/GuardDocumentationTest.kt",
+    "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/InternalTest.kt",
+    "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/AtomicTest.kt",
+    "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/AtomicDocumentationTest.kt",
+    "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/CollectorTest.kt",
+    "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/QueueTest.kt",
+    "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/UnportableTestSemantics.kt",
+    "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/DeferredTest.kt",
+    "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/ListTest.kt",
+    "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/backoff/BackoffDocTests.kt",
+    "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/FifoTest.kt",
+    "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/InjectorTest.kt",
+    "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/StealTest.kt",
+    "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/LifoTest.kt",
+    "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/deque/DequeDocumentationTest.kt",
+    "src/native/nativeTest/kotlin/io/github/kotlinmania/crossbeam/epoch/ListConcurrentTest.kt",
+    "src/native/nativeTest/kotlin/io/github/kotlinmania/crossbeam/epoch/CollectorConcurrentTest.kt",
+    "src/native/nativeTest/kotlin/io/github/kotlinmania/crossbeam/epoch/EpochScope.kt",
+    "src/native/nativeTest/kotlin/io/github/kotlinmania/crossbeam/epoch/QueueConcurrentTest.kt",
+    "src/native/nativeTest/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroupChannel.kt",
+    "src/native/nativeTest/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroupTest.kt",
+    "src/native/nativeTest/kotlin/io/github/kotlinmania/crossbeam/deque/DequeScope.kt",
+    "src/native/nativeTest/kotlin/io/github/kotlinmania/crossbeam/deque/FifoConcurrentTest.kt",
+    "src/native/nativeTest/kotlin/io/github/kotlinmania/crossbeam/deque/InjectorConcurrentTest.kt",
+    "src/native/nativeTest/kotlin/io/github/kotlinmania/crossbeam/deque/LifoConcurrentTest.kt",
+    "src/common/seqLock64Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLock.kt",
+    "src/common/seqLock32Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLockWide.kt",
+    "src/common/seqLock64Test/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLockTests.kt",
+    "src/common/seqLock32Test/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLockWideTests.kt",
+    "src/native/posix/posixTest/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroupSleepPosix.kt",
+    "src/native/mingw/mingwX64Test/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroupSleepWindows.kt",
+    "src/swift/swift-test-harness/Tests/SwiftTestHarnessTests/BackoffRustDocTests.swift"
+  ],
+  "current_inline_tests": [
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/src/atomic/seq_lock.rs",
+      "adopted": "src/common/seqLock64Test/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLockInlineTests.kt",
+      "native_emitted_sha256_before_repairs": "87417e56d4cefeffb60573a586da0e1e14b07f692792ef8648e912430f1ea0f3",
+      "direct_native_output": true,
+      "qualified_test_annotations": 1
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/src/atomic/seq_lock_wide.rs",
+      "adopted": "src/common/seqLock32Test/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlockwide/SeqLockWideInlineTests.kt",
+      "native_emitted_sha256_before_repairs": "3110eb84b1a7c011b9c4fc8e421d75bb637c92fcad1eb582eca435a1b2ad4a85",
+      "direct_native_output": true,
+      "qualified_test_annotations": 1
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/atomic.rs",
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/atomic/AtomicInlineTests.kt",
+      "native_emitted_sha256_before_repairs": "c6bcc04ac527f3baac621f031e81a7f1132da37ed5b6bcef399d5296537d0d04",
+      "direct_native_output": true,
+      "qualified_test_annotations": 5
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/default.rs",
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/default/DefaultInlineTests.kt",
+      "native_emitted_sha256_before_repairs": "e6db54abe44dc79a8f8eb0a1f3fc7b52655c860e1e589399ec017c811541c2db",
+      "direct_native_output": true,
+      "qualified_test_annotations": 1
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/deferred.rs",
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/deferred/DeferredInlineTests.kt",
+      "native_emitted_sha256_before_repairs": "2ac9d53bf198590dd4384e3bccfa98ec43cce79f7b0524866f294179af0478d3",
+      "direct_native_output": true,
+      "qualified_test_annotations": 5
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/sync/list.rs",
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/list/ListInlineTests.kt",
+      "native_emitted_sha256_before_repairs": "c5e26503bad41fa254c170b7066980d9f30c73ab7c92310fef92d9056eb67384",
+      "direct_native_output": true,
+      "qualified_test_annotations": 4
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/sync/queue.rs",
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/queue/QueueInlineTests.kt",
+      "native_emitted_sha256_before_repairs": "02408db01d8b341e87a317d75ea939ec85498789b7b559328b802279b42476f8",
+      "direct_native_output": true,
+      "qualified_test_annotations": 11
+    }
+  ],
+  "current_generator_sha256": "4e882c692974abb057b6892486ab7503b71f80428e36f21deef029e596efb192",
+  "current_acceptance": "metadata failed; 1461 diagnostics; no current tests executed",
+  "current_source_validation": {
+    "generator_sha256": "4e882c692974abb057b6892486ab7503b71f80428e36f21deef029e596efb192",
+    "profile": "raw ABI; actual rustc target facts; std+alloc; direct product/standalone/inline test output",
+    "result": "metadata compilation failed; no tests executed",
+    "compiler_diagnostics": 1478,
+    "log": "build/reports/crossbeam-port/redo-fail-safe-compile.log",
+    "rejected_sources": [
+      {
+        "source": "tmp/crossbeam/crossbeam-utils/src/atomic/atomic_cell.rs",
+        "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop, needs_drop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
+        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-utils-src-atomic-atomic_cell.log"
+      },
+      {
+        "source": "tmp/crossbeam/crossbeam-utils/src/sync/wait_group.rs",
+        "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
+        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-utils-src-sync-wait_group.log"
+      },
+      {
+        "source": "tmp/crossbeam/crossbeam-epoch/src/collector.rs",
+        "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
+        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-collector.log"
+      },
+      {
+        "source": "tmp/crossbeam/crossbeam-epoch/src/guard.rs",
+        "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
+        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-guard.log"
+      },
+      {
+        "source": "tmp/crossbeam/crossbeam-epoch/src/internal.rs",
+        "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
+        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-internal.log"
+      },
+      {
+        "source": "tmp/crossbeam/crossbeam-epoch/src/lib.rs",
+        "reason": "rust-kotlin: Unsupported shadowed standard-library cell: core::cell::UnsafeCell must not resolve to the same-file UnsafeCell wrapper",
+        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-lib.log"
+      }
+    ],
+    "test_annotations_in_commonMain": 0
+  }
+}

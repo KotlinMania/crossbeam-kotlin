@@ -1,0 +1,22 @@
+--- native-kexe-emission:src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/default/DefaultInlineTests.kt
++++ src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/default/DefaultInlineTests.kt
+@@ -1,9 +1,8 @@
+ // port-lint: tests crossbeam-epoch/src/default.rs
+ package io.github.kotlinmania.crossbeam.epoch.default
+ 
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.default.pin
++import io.github.kotlinmania.crossbeam.epoch.default.pin
+ import io.github.kotlinmania.crossbeam.epoch.primitive.thread_local
+-import io.github.kotlinmania.crossbeam.utils.thread
+ 
+ // The default garbage collector.
+ //
+@@ -20,7 +19,7 @@
+         }
+     }
+     thread_local(FOO, Foo, Foo)
+-    thread.scope({ scope ->
++    io.github.kotlinmania.crossbeam.utils.thread.scope({ scope ->
+         scope.spawn({
+             // Initialize `FOO` and then `HANDLE`.
+             FOO.with({ Unit })

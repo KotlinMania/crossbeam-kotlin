@@ -1,0 +1,12 @@
+{
+  "binary": "/Volumes/stuff/Projects/kotlinmania/rust-kotlin/build/bin/rust-kotlin",
+  "sha256": "d6b02d710963654105f075f0e8266cfaa650887ab2920ec2559e9daca6d9762e",
+  "equivalent_kexe": "/Volumes/stuff/Projects/kotlinmania/rust-kotlin/build/bin/macosArm64/releaseExecutable/rust-kotlin.kexe",
+  "upstream_commit": "2920c984290229ab4e0ca0452ef09e48a82063f3",
+  "upstream_remote": "https://github.com/crossbeam-rs/crossbeam.git",
+  "scope": [
+    "crossbeam-utils 0.8.23",
+    "crossbeam-epoch 0.9.21",
+    "crossbeam-deque 0.8.8"
+  ]
+}

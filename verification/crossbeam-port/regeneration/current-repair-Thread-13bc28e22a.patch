@@ -1,0 +1,11 @@
+--- native-kexe-emission:src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/thread/Thread.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/thread/Thread.kt
+@@ -2,7 +2,7 @@
+ package io.github.kotlinmania.crossbeam.utils.thread
+ 
+ import io.github.kotlinmania.crossbeam.utils.crossbeamchannel.src.utils.Mutex
+-import io.github.kotlinmania.crossbeam.utils.sync.WaitGroup
++import io.github.kotlinmania.crossbeam.utils.sync.waitgroup.WaitGroup
+ 
+ // Threads that can borrow variables from the stack.
+ //

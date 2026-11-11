@@ -1,0 +1,11 @@
+--- build/verification/redo-emission/epoch/src/Default.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/default/Default.kt
+@@ -3,7 +3,7 @@
+ 
+ import io.github.kotlinmania.crossbeam.epoch.collector.Collector
+ import io.github.kotlinmania.crossbeam.epoch.collector.LocalHandle
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.default.pin
++import io.github.kotlinmania.crossbeam.epoch.default.pin
+ import io.github.kotlinmania.crossbeam.epoch.guard.Guard
+ import io.github.kotlinmania.crossbeam.epoch.primitive.threadLocal
+ import io.github.kotlinmania.crossbeam.epoch.sync.oncelock.OnceLock

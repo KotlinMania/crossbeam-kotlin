@@ -1,0 +1,308 @@
+--- build/verification/regenerated-kexe/utils/src/sync/wait_group.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroup.kt
+@@ -1,156 +1,181 @@
+ // port-lint: source crossbeam-utils/src/sync/wait_group.rs
+-package io.github.kotlinmania.crossbeam.utils.sync.waitgroup.waitgroup
++package io.github.kotlinmania.crossbeam.utils.sync.waitgroup
+ 
+-import io.github.kotlinmania.crossbeam.primitive.sync.Arc
+-import io.github.kotlinmania.crossbeam.primitive.sync.Condvar
+-import io.github.kotlinmania.crossbeam.primitive.sync.Mutex
+-import io.github.kotlinmania.crossbeam.primitive.sync.atomic.AtomicUsize
+-import io.github.kotlinmania.crossbeam.primitive.sync.atomic.Ordering
+-
+-public class DebugStruct(
+-    private val out: StringBuilder,
+-    private val name: String,
+-) {
+-    private val fields: MutableList<String> = mutableListOf()
+-
+-    public fun field(name: String, value: Any?): DebugStruct =
+-        apply {
+-            fields.add("$name: $value")
+-        }
+-
+-    public fun finish() {
+-        if (fields.isEmpty()) {
+-            out.append(name)
+-        } else {
+-            out.append("$name { ${fields.joinToString(", ")} }")
+-        }
+-    }
+-
+-    public fun finishNonExhaustive() {
+-        fields.add("..")
+-        finish()
+-    }
+-}
++import io.github.kotlinmania.crossbeam.utils.platform.spinLoop
++import io.github.kotlinmania.crossbeam.utils.sync.monitor.createMonitor
++import kotlin.concurrent.atomics.AtomicBoolean
++import kotlin.concurrent.atomics.AtomicLong
+ 
+ /**
+  * Enables threads to synchronize the beginning or end of some computation.
+  *
+  * # Wait groups vs barriers
+  *
+- * `WaitGroup` is very similar to [Barrier], but there are a few differences:
++ * A barrier needs the number of threads at construction; a [WaitGroup] registers
++ * another participant when [clone] creates a new handle. A barrier can be reused,
++ * but a wait group synchronizes only once. Each participant can either [await]
++ * other participants or [close] its handle without waiting.
+  *
+- * * [Barrier] needs to know the number of threads at construction, while `WaitGroup` is cloned to
+- *   register more threads.
++ * Kotlin has no deterministic Rust Drop. Every handle must be closed explicitly,
++ * normally with [use], or consumed by [await]. Garbage collection does not close
++ * a handle or release its monitor. Aliasing a Kotlin reference is not [clone].
++ * `await()` is Rust's consuming `wait(self)`: the name avoids the final JVM
++ * `Object.wait()` method without platform naming annotations.
+  *
+- * * A [Barrier] can be reused even after all threads have synchronized, while a `WaitGroup`
+- *   synchronizes threads only once.
++ * # Example
+  *
+- * * All threads wait for others to reach the [Barrier]. With `WaitGroup`, each thread can choose
+- *   to either wait for other threads or to continue without blocking.
++ * On Kotlin/Native, where `Worker` is `kotlin.native.concurrent.Worker`:
++ * ```kotlin
++ * val wg = WaitGroup.new()
++ * val workers = (0 until 4).map {
++ *     val participant = wg.clone()
++ *     val worker = Worker.start()
++ *     val task = worker.execute(TransferMode.SAFE, { participant }) { handle ->
++ *         handle.use {
++ *             // Do some work. Leaving use closes the participant handle.
++ *         }
++ *     }
++ *     worker to task
++ * }
++ * wg.await() // Block until all participants have finished their work.
++ * workers.forEach { (worker, task) ->
++ *     task.result
++ *     worker.requestTermination().result
++ * }
++ * ```
+  *
+- * # Examples
+- *
+- * ```kotlin
+- * import crossbeamutils.sync.WaitGroup
+- *
+- * // Create a new wait group.
+- * val wg = WaitGroup.new()
+- * for (unused in 0 until 4) {
+- *     // Create another reference to the wait group.
+- *     val wg1 = wg.clone()
+- *     thread.spawn({
+- *         // Do some work.
+- *         // Drop the reference to the wait group.
+- *         drop(wg1)
+- *     })
+- * }
+- * // Block until all threads have finished their work.
+- * wg.wait()
+- * ```
++ * Kotlin JS/Wasm cannot share this object between execution agents. Like Rust's
++ * no-thread condvar backend, an [await] that would block throws
++ * `IllegalStateException("condvar wait not supported")` instead of simulating
++ * blocking or yielding to the event loop. Closing handles and awaiting the last
++ * participant still work.
+  */
+-public data class WaitGroup(public var inner: Inner = Inner()) {
++public class WaitGroup private constructor(
++    private var inner: Inner?,
++) : AutoCloseable {
++    // Rust borrowing prevents clone(&self) racing destruction of that same handle.
++    // Kotlin permits aliases, so this short gate protects handle borrowing only.
++    // It is never held across the actual condition-variable wait.
++    private val borrowed = AtomicBoolean(false)
++
++    /** Creates a new wait group and its single participant handle. */
++    public constructor() : this(Inner())
++
+     /**
+-     * Drops this reference and waits until all other references are dropped.
++     * Consumes this handle and waits until every other participant is closed or
++     * waiting. A consumed handle cannot be cloned or awaited again; [close] is
++     * idempotent so `use { it.await() }` remains safe.
+      *
+-     * # Examples
+-     *
++     * Kotlin/Native example, with Worker and TransferMode from kotlin.native.concurrent:
+      * ```kotlin
+-     * import crossbeamutils.sync.WaitGroup
+-     *
+      * val wg = WaitGroup.new()
+-     * thread.spawn(run {
+-     *     val wg1 = wg.clone()
+-     *     {
+-     *         // Block until both threads have reached `wait()`.
+-     *         wg1.wait()
+-     *     }
+-     * })
+-     * // Block until both threads have reached `wait()`.
+-     * wg.wait()
++     * val participant = wg.clone()
++     * val worker = Worker.start()
++     * val task = worker.execute(TransferMode.SAFE, { participant }) { handle ->
++     *     handle.await() // Block until both threads have reached await().
++     * }
++     * wg.await()
++     * task.result
++     * worker.requestTermination().result
+      * ```
+      */
+-    public fun wait() {
+-        // SAFETY: this is equivalent to let Self { inner } = self, without calling our Drop.
+-        val inner = run {
+-            val slf = this
+-            read(slf.inner)
+-        }
+-        if (inner.count.fetchSub(1, Ordering.AcqRel) == 1) {
+-            // Acquire lock after updating count, see below.
+-            drop(inner.lock.lock().unwrap())
+-            inner.cvar.notifyAll()
+-            return
+-        }
+-        // We check the counter while holding the lock, and notifiers acquire
+-        // the lock between updating the counter and notifying, ensuring we
+-        // can not miss the notification.
+-        var guard = inner.lock.lock().unwrap()
+-        while (inner.count.load(Ordering.Acquire) != 0) {
+-            guard = inner.cvar.wait(guard).unwrap()
++    public fun await() {
++        // Taking the handle's reference without close() is Rust's ManuallyDrop
++        // extraction. Keep this Arc-equivalent reference until waiting finishes.
++        val state = checkNotNull(takeInner()) { "WaitGroup handle has already been consumed" }
++        try {
++            // Kotlin atomics are sequentially consistent, stronger than AcqRel.
++            if (state.count.fetchAndAdd(-1L) == 1L) {
++                // Acquire lock after updating count, see below.
++                state.monitor.lock()
++                state.monitor.unlock()
++                state.monitor.notifyAllWaiters()
++                return
++            }
++
++            // Check the counter while holding the lock. Notifiers acquire the
++            // lock between updating the counter and notifying, so a notification
++            // cannot be missed between checking the count and starting to wait.
++            state.monitor.lock()
++            try {
++                while (state.count.load() != 0L) {
++                    state.monitor.awaitNotification()
++                }
++            } finally {
++                state.monitor.unlock()
++            }
++        } finally {
++            state.release()
+         }
+     }
+ 
+-    public fun drop() {
+-        if (this.inner.count.fetchSub(1, Ordering.Release) == 1) {
+-            // Acquire lock after updating count, see wait().
+-            drop(this.inner.lock.lock().unwrap())
+-            this.inner.cvar.notifyAll()
++    /** Rust Drop, expressed deterministically. Does not wait for other participants. */
++    override fun close() {
++        val state = takeInner() ?: return
++        try {
++            // Sequential consistency is stronger than the original Release.
++            if (state.count.fetchAndAdd(-1L) == 1L) {
++                // Acquire lock after updating count, see await().
++                state.monitor.lock()
++                state.monitor.unlock()
++                state.monitor.notifyAllWaiters()
++            }
++        } finally {
++            state.release()
+         }
+     }
+ 
+-    public fun clone(): WaitGroup {
+-        this.inner.count.fetchAdd(1, Ordering.Relaxed)
+-        return WaitGroup(inner = this.inner.clone())
+-    }
++    /** Registers another participant and returns its independently owned handle. */
++    public fun clone(): WaitGroup =
++        withBorrowedHandle {
++            val state = checkNotNull(inner) { "WaitGroup handle has already been consumed" }
++            val cloned = WaitGroup(state)
++            // The original handle retains state while this borrow is active.
++            // Count uses stronger sequential consistency instead of Relaxed.
++            state.count.fetchAndAdd(1L)
++            state.references.fetchAndAdd(1L)
++            cloned
++        }
+ 
+-    public fun fmt(f: StringBuilder) {
+-        val count = this.inner.count.load(Ordering.Relaxed)
+-        DebugStruct(f, "WaitGroup").field("count", count).finish()
++    override fun toString(): String =
++        withBorrowedHandle {
++            val state = checkNotNull(inner) { "WaitGroup handle has already been consumed" }
++            "WaitGroup { count: ${state.count.load().toULong()} }"
++        }
++
++    private fun takeInner(): Inner? =
++        withBorrowedHandle {
++            val state = inner
++            inner = null
++            state
++        }
++
++    private inline fun <T> withBorrowedHandle(block: () -> T): T {
++        while (!borrowed.compareAndSet(false, true)) spinLoop()
++        try {
++            return block()
++        } finally {
++            borrowed.store(false)
++        }
+     }
+ 
+     public companion object {
+-        /**
+-         * Creates a new wait group and returns the single reference to it.
+-         *
+-         * # Examples
+-         *
+-         * ```kotlin
+-         * import crossbeamutils.sync.WaitGroup
+-         *
+-         * val wg = WaitGroup.new()
+-         * ```
+-         */
+-        public fun new(): WaitGroup {
+-            return WaitGroup.default()
+-        }
++        /** Creates a new wait group and returns the single participant handle. */
++        public fun new(): WaitGroup = WaitGroup()
++        public fun default(): WaitGroup = WaitGroup()
+     }
+ }
+ 
+-/**
+- * Inner state of a `WaitGroup`.
+- */
+-public data class Inner(
+-    public var cvar: Condvar = Condvar(),
+-    public var lock: Mutex<Unit> = Mutex<Unit>(),
+-    public var count: AtomicUsize = AtomicUsize(),
+-)
++/** Inner state of a wait group. */
++private class Inner {
++    val monitor = createMonitor()
++    val count = AtomicLong(1L)
++
++    // Unlike participant count, Arc ownership includes already-waiting handles.
++    // This prevents destroying the mutex/condvar while a waiter is waking up.
++    val references = AtomicLong(1L)
++
++    fun release() {
++        if (references.fetchAndAdd(-1L) == 1L) monitor.close()
++    }
++}

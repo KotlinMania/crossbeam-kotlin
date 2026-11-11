@@ -1,0 +1,11 @@
+--- native-kexe-emission:src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/internal/Internal.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/internal/Internal.kt
+@@ -18,7 +18,7 @@
+ import io.github.kotlinmania.crossbeam.epoch.sync.list.IterError
+ import io.github.kotlinmania.crossbeam.epoch.sync.list.List
+ import io.github.kotlinmania.crossbeam.epoch.sync.queue.Queue
+-import io.github.kotlinmania.crossbeam.utils.CachePadded
++import io.github.kotlinmania.crossbeam.utils.cachepadded.CachePadded
+ 
+ // The global data and participant for garbage collection.
+ //

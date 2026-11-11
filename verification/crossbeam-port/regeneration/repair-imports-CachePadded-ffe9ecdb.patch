@@ -1,0 +1,11 @@
+--- build/verification/redo-emission/utils/tests/CachePadded.kt
++++ src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/utils/tests/cachepadded/CachePadded.kt
+@@ -2,7 +2,7 @@
+ package io.github.kotlinmania.crossbeam.utils.tests.cachepadded
+ 
+ import io.github.kotlinmania.crossbeam.utils.COpaquePointer
+-import io.github.kotlinmania.crossbeam.utils.CachePadded
++import io.github.kotlinmania.crossbeam.utils.cachepadded.CachePadded
+ 
+ @Test
+ public fun default() {

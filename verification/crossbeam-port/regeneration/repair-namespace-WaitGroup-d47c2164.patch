@@ -1,0 +1,29 @@
+--- build/verification/redo-emission/utils/src/sync/WaitGroup.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/waitgroup/WaitGroup.kt
+@@ -65,7 +65,7 @@
+  *     })
+  * }
+  * // Block until all threads have finished their work.
+- * wg.wait()
++ * wg.await()
+  * ```
+  */
+ public open class WaitGroup(public var inner: Inner) {
+@@ -82,14 +82,14 @@
+      *     val wg1 = wg.clone()
+      *     {
+      *         // Block until both threads have reached `wait()`.
+-     *         wg1.wait()
++     *         wg1.await()
+      *     }
+      * })
+      * // Block until both threads have reached `wait()`.
+-     * wg.wait()
++     * wg.await()
+      * ```
+      */
+-    public open fun wait() {
++    public open fun await() {
+         // SAFETY: this is equivalent to let Self { inner } = self, without calling our Drop.
+         val inner = run {
+             val slf = this

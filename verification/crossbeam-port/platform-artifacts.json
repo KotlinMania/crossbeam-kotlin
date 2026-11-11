@@ -1,0 +1,95 @@
+{
+  "artifacts": [
+    {
+      "path": "build/jni-distribution/linux-x86_64/libffi_jni.so",
+      "sha256": "64b436363aecdc757d5eb91f7275d3b6abaf0d16df1af1ea105ac34f0119c82c"
+    },
+    {
+      "path": "build/jni-distribution/linux-aarch64/libffi_jni.so",
+      "sha256": "dd1abd7cfece3c281cdf6d2c948e6ba5c015313b0efc3515201dc33dd7addf54"
+    },
+    {
+      "path": "build/jni-distribution/windows-x86_64/ffi_jni.dll",
+      "sha256": "cc2f665adea8b8311b0a503620fe0414eb5fb779eb81ad565423afbeea7a5283"
+    },
+    {
+      "path": "src/js/node-ffi/dist/platform/linux-arm64/Release/ffi_native.node",
+      "sha256": "79c499753515b2cb7133ba1e827480cb7a96f09e8759c17d7a5429e7941f881f"
+    },
+    {
+      "path": "src/js/node-ffi/dist/platform/win32-x64/Release/ffi_native.node",
+      "sha256": "d27ff666f94391720b394143201a244f1445cdc0500c8e76abc82efc2e4f03f8"
+    },
+    {
+      "path": "src/js/node-ffi/dist/platform/darwin-arm64/Release/ffi_native.node",
+      "sha256": "ff13f2eb464d8bcd0de9c78abd976283c6f9fed5c4f4920780025f9ccb75b87f"
+    },
+    {
+      "path": "src/js/node-ffi/dist/platform/darwin-arm64/Debug/ffi_native.node",
+      "sha256": "d0c33ddbea1a514ed9c7ec210a416cde34029a3d9e66bec9ff1dd82dec28be2c"
+    },
+    {
+      "path": "src/js/node-ffi/dist/platform/linux-x64/Release/ffi_native.node",
+      "sha256": "d4d62b9a64c9eadb6ef35e05dc3efe0765a9008d5aa1a90a6202ba79a1c8607a"
+    }
+  ],
+  "foreign_java_node_runtime_execution": "not verified; portable runtime decision remains outstanding",
+  "native_foreign_suite_execution": "79 original-derived tests passed on Linux ARM64, Linux x64 and Windows x64 via existing local VMs",
+  "android_native_x64_runtime": "unknown; online Android emulator exposes ARM64 only",
+  "apple_device_runtime": "iOS/tvOS/watchOS device variants compiled, not runtime-tested; simulators passed",
+  "current_source_validation": {
+    "generator_sha256": "4e882c692974abb057b6892486ab7503b71f80428e36f21deef029e596efb192",
+    "profile": "raw ABI; actual rustc target facts; std+alloc; direct product/standalone/inline test output",
+    "result": "metadata compilation failed; no tests executed",
+    "compiler_diagnostics": 1478,
+    "log": "build/reports/crossbeam-port/redo-fail-safe-compile.log",
+    "rejected_sources": [
+      {
+        "source": "tmp/crossbeam/crossbeam-utils/src/atomic/atomic_cell.rs",
+        "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop, needs_drop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
+        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-utils-src-atomic-atomic_cell.log"
+      },
+      {
+        "source": "tmp/crossbeam/crossbeam-utils/src/sync/wait_group.rs",
+        "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
+        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-utils-src-sync-wait_group.log"
+      },
+      {
+        "source": "tmp/crossbeam/crossbeam-epoch/src/collector.rs",
+        "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
+        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-collector.log"
+      },
+      {
+        "source": "tmp/crossbeam/crossbeam-epoch/src/guard.rs",
+        "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
+        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-guard.log"
+      },
+      {
+        "source": "tmp/crossbeam/crossbeam-epoch/src/internal.rs",
+        "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
+        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-internal.log"
+      },
+      {
+        "source": "tmp/crossbeam/crossbeam-epoch/src/lib.rs",
+        "reason": "rust-kotlin: Unsupported shadowed standard-library cell: core::cell::UnsafeCell must not resolve to the same-file UnsafeCell wrapper",
+        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-lib.log"
+      }
+    ],
+    "test_annotations_in_commonMain": 0
+  },
+  "pre_reset_source_validation": {
+    "status": "focused host gate passed; full enabled aggregate blocked",
+    "focused_tests": {
+      "macosArm64": 117,
+      "jvm": 94,
+      "jsNode": 94,
+      "wasmJsNode": 94,
+      "wasmWasiNode": 94
+    },
+    "full_gate_log": "build/reports/crossbeam-port/wait-group-all-enabled.log",
+    "blocker": "iosSimulatorArm64Test could not initialize CoreSimulator device set; service connection invalid/refused and simdiskimaged unavailable",
+    "previous_foreign_native_counts": "79-test foreign runtime receipts are baseline only; current source has not been run there",
+    "foreign_jni_napi_artifacts": "listed foreign payload hashes predate the adopted monitor bridge; no completeness claim for current source",
+    "holds": "new portable JDK/Node download/execution; CI/push/PR/merge/publication remain held"
+  }
+}

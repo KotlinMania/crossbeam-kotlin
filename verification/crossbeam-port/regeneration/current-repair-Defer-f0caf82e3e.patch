@@ -1,0 +1,12 @@
+--- native-kexe-emission:src/common/commonBenchmark/kotlin/io/github/kotlinmania/crossbeam/epoch/benches/defer/Defer.kt
++++ src/common/commonBenchmark/kotlin/io/github/kotlinmania/crossbeam/epoch/benches/defer/Defer.kt
+@@ -1,8 +1,7 @@
+ // port-lint: source crossbeam-epoch/benches/defer.rs
+ package io.github.kotlinmania.crossbeam.epoch.benches.defer
+ 
+-import io.github.kotlinmania.crossbeam.epoch.Owned
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamchannel.benchmarks.atomicring.THREADS
++import io.github.kotlinmania.crossbeam.epoch.atomic.Owned
+ import io.github.kotlinmania.crossbeam.utils.thread.scope
+ import io.github.kotlinmania.test.Bencher
+ 

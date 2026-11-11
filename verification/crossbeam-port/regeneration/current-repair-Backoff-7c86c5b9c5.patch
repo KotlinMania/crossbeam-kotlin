@@ -1,0 +1,128 @@
+--- native-kexe-emission:src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/backoff/Backoff.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/backoff/Backoff.kt
+@@ -1,9 +1,10 @@
+ // port-lint: source crossbeam-utils/src/backoff.rs
+ package io.github.kotlinmania.crossbeam.utils.backoff
+ 
+-import io.github.kotlinmania.crossbeam.utils.primitive.hint
+-
+-public class DebugStruct(
++import io.github.kotlinmania.crossbeam.utils.platform.spinLoop
++import io.github.kotlinmania.crossbeam.utils.platform.yieldThread
++
++private class DebugStruct(
+     private val out: StringBuilder,
+     private val name: String,
+ ) {
+@@ -28,12 +29,16 @@
+     }
+ }
+ 
+-public val SPIN_LIMIT: UInt = 6u
+-
+-public val YIELD_LIMIT: UInt = 10u
++private const val SPIN_LIMIT: UInt = 6u
++
++private const val YIELD_LIMIT: UInt = 10u
+ 
+ /**
+  * Performs exponential backoff in spin loops.
++ *
++ * Keep each instance from concurrent use, as with Rust Cell/non-Sync; Kotlin cannot enforce
++ * that bound. Retained emitted examples contain unavailable std-runtime references and
++ * documentation translation defects, so they do not establish runnable-Kotlin example parity.
+  *
+  * Backing off in spin loops reduces contention and improves overall performance.
+  *
+@@ -101,7 +106,9 @@
+  *
+  * [is_completed]: Backoff::is_completed
+  */
+-public data class Backoff(public var step: Cell<UInt> = Cell<UInt>()) {
++public class Backoff private constructor(private var step: UInt) {
++    public constructor() : this(0u)
++
+     /**
+      * Resets the `Backoff`.
+      *
+@@ -115,7 +122,7 @@
+      * ```
+      */
+     public fun reset() {
+-        this.step.set(0)
++        this.step = 0u
+     }
+ 
+     /**
+@@ -151,11 +158,11 @@
+      * ```
+      */
+     public fun spin() {
+-        for (unused in 0 until 1 shl this.step.get().min(SPIN_LIMIT).toInt()) {
+-            hint.spin_loop()
+-        }
+-        if (this.step.get() <= SPIN_LIMIT) {
+-            this.step.set(this.step.get() + 1)
++        repeat(1 shl minOf(this.step, SPIN_LIMIT).toInt()) {
++            spinLoop()
++        }
++        if (this.step <= SPIN_LIMIT) {
++            this.step += 1u
+         }
+     }
+ 
+@@ -203,17 +210,16 @@
+      * ```
+      */
+     public fun snooze() {
+-        if (this.step.get() <= SPIN_LIMIT) {
+-            for (unused in 0 until 1 shl this.step.get().toInt()) {
+-                hint.spin_loop()
++        if (this.step <= SPIN_LIMIT) {
++            repeat(1 shl this.step.toInt()) {
++                spinLoop()
+             }
+         } else {
+-            for (unused1 in 0 until 1 shl this.step.get().toInt()) {
+-                hint.spin_loop()
+-            }
+-        }
+-        if (this.step.get() <= YIELD_LIMIT) {
+-            this.step.set(this.step.get() + 1)
++            // The selected Rust std branch yields; emitted no_std fallback is incorrect.
++            yieldThread()
++        }
++        if (this.step <= YIELD_LIMIT) {
++            this.step += 1u
+         }
+     }
+ 
+@@ -254,11 +260,13 @@
+      * ```
+      */
+     public fun is_completed(): Boolean {
+-        return this.step.get() > YIELD_LIMIT
+-    }
++        return this.step > YIELD_LIMIT
++    }
++
++    override fun toString(): String = StringBuilder().also { fmt(it) }.toString()
+ 
+     public fun fmt(f: StringBuilder) {
+-        DebugStruct(f, "Backoff").field("step", this.step).field("is_completed", this.is_completed()).finish()
++        DebugStruct(f, "Backoff").field("step", "Cell { value: ${this.step} }").field("is_completed", this.is_completed()).finish()
+     }
+ 
+     public companion object {
+@@ -274,7 +282,9 @@
+          * ```
+          */
+         public fun new(): Backoff {
+-            return Backoff(step = Cell.new(0))
+-        }
++            return Backoff(step = 0u)
++        }
++        public fun default(): Backoff = Backoff.new()
++
+     }
+ }

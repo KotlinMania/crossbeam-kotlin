@@ -1,0 +1,94 @@
+{
+    "targets": [
+        "android",
+        "androidNativeArm64",
+        "androidNativeX64",
+        "iosArm64",
+        "iosSimulatorArm64",
+        "js",
+        "jvm",
+        "linuxArm64",
+        "linuxX64",
+        "macosArm64",
+        "metadata",
+        "mingwX64",
+        "tvosArm64",
+        "tvosSimulatorArm64",
+        "wasmJs",
+        "wasmWasi",
+        "watchosDeviceArm64",
+        "watchosSimulatorArm64"
+    ],
+    "bindings": {
+        "project.ffi.native": "true",
+        "project.ffi.jvm": "true",
+        "project.ffi.napi": "true"
+    },
+    "tasks": [
+        {
+            "name": "buildAllTargets",
+            "present": true,
+            "enabled": true
+        },
+        {
+            "name": "compileAllTargets",
+            "present": true,
+            "enabled": true
+        },
+        {
+            "name": "hostTests",
+            "present": true,
+            "enabled": true
+        },
+        {
+            "name": "test",
+            "present": true,
+            "enabled": true
+        },
+        {
+            "name": "swiftExportSmokeTest",
+            "present": true,
+            "enabled": true
+        },
+        {
+            "name": "packagedJniTest",
+            "present": true,
+            "enabled": true
+        },
+        {
+            "name": "validateAndroidNativeArm64Runtime",
+            "present": true,
+            "enabled": true
+        },
+        {
+            "name": "validateAndroidNativeX64Runtime",
+            "present": true,
+            "enabled": true
+        },
+        {
+            "name": "validateLinuxArm64Runtime",
+            "present": true,
+            "enabled": true
+        },
+        {
+            "name": "validateLinuxX64Runtime",
+            "present": true,
+            "enabled": true
+        },
+        {
+            "name": "validateMingwX64Runtime",
+            "present": true,
+            "enabled": true
+        },
+        {
+            "name": "buildNodeFfi",
+            "present": true,
+            "enabled": true
+        },
+        {
+            "name": "compileFfiJni",
+            "present": true,
+            "enabled": true
+        }
+    ]
+}

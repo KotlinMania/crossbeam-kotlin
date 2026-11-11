@@ -1,0 +1,19 @@
+gradle.projectsEvaluated {
+    rootProject.tasks.register('crossbeamTargetAudit') {
+        doLast {
+            def p = rootProject
+            def kmp = p.extensions.getByName('kotlin')
+            def targetNames = kmp.targets.collect { it.name }.sort()
+            def taskNames = ['buildAllTargets','compileAllTargets','hostTests','test','swiftExportSmokeTest','packagedJniTest','validateAndroidNativeArm64Runtime','validateAndroidNativeX64Runtime','validateLinuxArm64Runtime','validateLinuxX64Runtime','validateMingwX64Runtime','buildNodeFfi','compileFfiJni']
+            def taskRows = taskNames.collect { name ->
+                def task = p.tasks.findByName(name)
+                [name:name,present:task != null,enabled:task?.enabled]
+            }
+            def flags = ['project.ffi.native','project.ffi.jvm','project.ffi.napi'].collectEntries { key -> [(key):p.findProperty(key)] }
+            def result=[targets:targetNames,bindings:flags,tasks:taskRows]
+            def out=p.file('verification/crossbeam-port/target-task-audit.json')
+            out.text=groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(result))
+            println(out.text)
+        }
+    }
+}

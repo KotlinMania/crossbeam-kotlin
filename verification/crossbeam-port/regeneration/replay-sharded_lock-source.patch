@@ -1,0 +1,52 @@
+--- generated.kt
++++ repaired.kt
+@@ -539,7 +539,7 @@
+  * Since this function accesses TLS, `None` might be returned if the current thread's TLS is
+  * tearing down.
+  */
+-public fun current_index(): Int? {
++public fun current_index(): ULong? {
+     return REGISTRATION.try_with({ reg -> reg.index }).ok()
+ }
+ 
+@@ -550,23 +550,24 @@
+     /**
+      * Mapping from `ThreadId` to thread index.
+      */
+-    public var mapping: Map<Any, ULong> = emptyMap(),
++    public var mapping: MutableMap<Any, ULong> = mutableMapOf(),
+     /**
+      * A list of free indices.
+      */
+-    public var free_list: List<ULong> = emptyList(),
++    public var free_list: MutableList<ULong> = mutableListOf(),
+     /**
+      * The next index to allocate if the free list is empty.
+      */
+     public var next_index: ULong = 0uL,
+ )
+ 
++private val THREAD_INDICES: OnceLock<Mutex<ThreadIndices>> = OnceLock.new()
++
+ public fun thread_indices(): Mutex<ThreadIndices> {
+-    var THREAD_INDICES: OnceLock<Mutex<ThreadIndices>> = OnceLock.new()
+     fun init(): Mutex<ThreadIndices> {
+-        return Mutex.new(ThreadIndices(mapping = HashMap.new(), free_list = mutableListOf(), next_index = 0))
+-    }
+-    return THREAD_INDICES.get_or_init(init)
++        return Mutex.new(ThreadIndices(mapping = mutableMapOf(), free_list = mutableListOf(), next_index = 0uL))
++    }
++    return THREAD_INDICES.get_or_init(::init)
+ }
+ 
+ /**
+@@ -578,6 +579,6 @@
+     public fun drop() {
+         var indices = thread_indices().lock().unwrap()
+         indices.mapping.remove(this.thread_id)
+-        indices.free_list.push(this.index)
+-    }
+-}
++        indices.free_list.add(this.index)
++    }
++}

@@ -1,0 +1,17 @@
+--- native-kexe-emission:src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/list/List.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/list/List.kt
+@@ -1,10 +1,10 @@
+ // port-lint: source crossbeam-epoch/src/sync/list.rs
+ package io.github.kotlinmania.crossbeam.epoch.sync.list
+ 
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.atomic.Atomic
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.atomic.Shared
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.guard.Guard
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.guard.unprotected
++import io.github.kotlinmania.crossbeam.epoch.atomic.Atomic
++import io.github.kotlinmania.crossbeam.epoch.atomic.Shared
++import io.github.kotlinmania.crossbeam.epoch.guard.Guard
++import io.github.kotlinmania.crossbeam.epoch.guard.unprotected
+ 
+ // Lock-free intrusive linked list.
+ //

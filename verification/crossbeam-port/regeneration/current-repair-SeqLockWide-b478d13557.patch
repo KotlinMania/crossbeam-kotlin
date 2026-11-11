@@ -1,0 +1,11 @@
+--- native-kexe-emission:src/common/seqLock32Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlockwide/SeqLockWide.kt
++++ src/common/seqLock32Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlockwide/SeqLockWide.kt
+@@ -1,7 +1,7 @@
+ // port-lint: source crossbeam-utils/src/atomic/seq_lock_wide.rs
+ package io.github.kotlinmania.crossbeam.utils.atomic.seqlockwide
+ 
+-import io.github.kotlinmania.crossbeam.utils.crossbeamutils.src.backoff.Backoff
++import io.github.kotlinmania.crossbeam.utils.backoff.Backoff
+ 
+ /**
+  * A simple stamped lock.

@@ -1,0 +1,40 @@
+{
+  "generator_sha256": "4e882c692974abb057b6892486ab7503b71f80428e36f21deef029e596efb192",
+  "profile": "raw ABI; actual rustc target facts; std+alloc; direct product/standalone/inline test output",
+  "result": "metadata compilation failed; no tests executed",
+  "compiler_diagnostics": 1478,
+  "log": "build/reports/crossbeam-port/redo-fail-safe-compile.log",
+  "rejected_sources": [
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/src/atomic/atomic_cell.rs",
+      "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop, needs_drop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
+      "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-utils-src-atomic-atomic_cell.log"
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-utils/src/sync/wait_group.rs",
+      "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
+      "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-utils-src-sync-wait_group.log"
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/collector.rs",
+      "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
+      "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-collector.log"
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/guard.rs",
+      "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
+      "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-guard.log"
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/internal.rs",
+      "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
+      "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-internal.log"
+    },
+    {
+      "source": "tmp/crossbeam/crossbeam-epoch/src/lib.rs",
+      "reason": "rust-kotlin: Unsupported shadowed standard-library cell: core::cell::UnsafeCell must not resolve to the same-file UnsafeCell wrapper",
+      "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-lib.log"
+    }
+  ],
+  "test_annotations_in_commonMain": 0
+}

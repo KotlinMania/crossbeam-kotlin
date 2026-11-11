@@ -1,0 +1,31 @@
+--- native-kexe-emission:src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/collector/CollectorInlineTests.kt
++++ src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/collector/CollectorInlineTests.kt
+@@ -1,9 +1,7 @@
+ // port-lint: tests crossbeam-epoch/src/collector.rs
+ package io.github.kotlinmania.crossbeam.epoch.collector
+ 
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamchannel.benchmarks.atomicring.THREADS
+-import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.atomic.Owned
+-import io.github.kotlinmania.crossbeam.utils.thread
++import io.github.kotlinmania.crossbeam.epoch.atomic.Owned
+ 
+ public val NUM_THREADS: ULong = 8uL
+ 
+@@ -62,7 +60,7 @@
+ public fun pin_holds_advance() {
+     val N: Int = 500000
+     val collector = Collector.new()
+-    thread.scope({ scope ->
++    io.github.kotlinmania.crossbeam.utils.thread.scope({ scope ->
+         for (unused in 0 until NUM_THREADS) {
+             scope.spawn({
+                 val handle = collector.register()
+@@ -273,7 +271,7 @@
+         }
+     }
+     val collector = Collector.new()
+-    thread.scope({ scope ->
++    io.github.kotlinmania.crossbeam.utils.thread.scope({ scope ->
+         for (unused in 0 until THREADS) {
+             scope.spawn({
+                 val handle = collector.register()
