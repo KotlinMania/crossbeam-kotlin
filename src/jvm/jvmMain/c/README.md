@@ -11,7 +11,7 @@ src/jvm/jvmMain/c/
 ```
 
 The matching Kotlin bridge class is
-`..`, an `internal object`
+`io.github.kotlinmania.crossbeam.internal.FfiJni`, an `internal object`
 declaring `external fun`s with `@JvmStatic`. The build wires the compiled
 library into `jvmTest`'s `java.library.path`, so `System.loadLibrary(...)`
 in the bridge's `init` resolves without any environment setup.
@@ -42,19 +42,19 @@ that Gradle cannot validate:
 
 - If you rename the Kotlin bridge class (`FfiJni` → `LibcJni`), every
   JNIEXPORT symbol here must change the class segment to match.
-- If you change the Kotlin package (e.g. from `...template.internal` to
+- If you change the Kotlin package (e.g. from `...crossbeam.internal` to
   `...libc.internal`), the package segment of every symbol must change.
 
 Getting either wrong compiles cleanly on both sides and fails only at
-`jvmTest` with `java.lang.UnsatisfiedLinkError: ...FfiJni.getpid()`. When
+`jvmTest` with `java.lang.UnsatisfiedLinkError: ...FfiJni.threadId()`. When
 you see that error, this file's symbol names vs the Kotlin bridge class
 are the first place to look.
 
-The template default pairs:
+This project default pairs:
 
-- C symbol: `Java_io_github_kotlinmania_template_internal_FfiJni_getpid`
-- Kotlin: `internal object FfiJni` in `io.github.kotlinmania.template.internal`
-  declaring `@JvmStatic external fun getpid(): Int`
+- C symbol: `Java_io_github_kotlinmania_crossbeam_internal_FfiJni_threadId`
+- Kotlin: `internal object FfiJni` in `io.github.kotlinmania.crossbeam.internal`
+  declaring `@JvmStatic external fun threadId(): Long`
 
 ## Keeping the bridge invisible to Swift Export
 

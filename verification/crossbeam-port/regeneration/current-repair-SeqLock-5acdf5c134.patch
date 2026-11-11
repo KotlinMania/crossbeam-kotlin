@@ -1,11 +1,119 @@
 --- native-kexe-emission:src/common/seqLock64Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLock.kt
 +++ src/common/seqLock64Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLock.kt
-@@ -1,7 +1,7 @@
+@@ -1,28 +1,31 @@
  // port-lint: source crossbeam-utils/src/atomic/seq_lock.rs
  package io.github.kotlinmania.crossbeam.utils.atomic.seqlock
  
 -import io.github.kotlinmania.crossbeam.utils.crossbeamutils.src.backoff.Backoff
 +import io.github.kotlinmania.crossbeam.utils.backoff.Backoff
++import kotlin.concurrent.atomics.AtomicLong
++import kotlin.concurrent.atomics.ExperimentalAtomicApi
  
  /**
   * A simple stamped lock.
+  */
+-internal data class SeqLock(
++@OptIn(ExperimentalAtomicApi::class)
++internal class SeqLock(
+     /**
+      * The current state of the lock.
+      *
+      * All bits except the least significant one hold the current stamp. When locked, the state
+      * equals 1 and doesn't contain a valid stamp.
+      */
+-    public var state: AtomicUsize = AtomicUsize(),
++    public var state: AtomicLong = AtomicLong(0L),
+ ) {
+     /**
+      * If not locked, returns the current stamp.
+      *
+      * This method should be called before optimistic reads.
+      */
+-    internal fun optimistic_read(): Int? {
+-        val state = this.state.load(Ordering.Acquire)
+-        return if (state == 1) {
++    internal fun optimistic_read(): Long? {
++        val state = this.state.load()
++        return if (state == 1L) {
+             null
+         } else {
+             state
+@@ -35,9 +38,9 @@
+      * This method should be called after optimistic reads to check whether they are valid. The
+      * argument `stamp` should correspond to the one returned by method `optimistic_read`.
+      */
+-    internal fun validate_read(stamp: Int): Boolean {
+-        atomic.fence(Ordering.Acquire)
+-        return this.state.load(Ordering.Relaxed) == stamp
++    internal fun validate_read(stamp: Long): Boolean {
++        // A sequentially consistent RMW supplies the Rust acquire fence and load.
++        return this.state.fetchAndAdd(0L) == stamp
+     }
+ 
+     /**
+@@ -46,9 +49,9 @@
+     internal fun write(): SeqLockWriteGuard {
+         val backoff = Backoff.new()
+         while (true) {
+-            val previous = this.state.swap(1, Ordering.Acquire)
+-            if (previous != 1) {
+-                atomic.fence(Ordering.Release)
++            val previous = this.state.exchange(1L)
++            if (previous != 1L) {
++                // exchange is sequentially consistent, stronger than the Rust release fence.
+                 return SeqLockWriteGuard(lock = this, state = previous)
+             }
+             backoff.snooze()
+@@ -57,7 +60,7 @@
+ 
+     public companion object {
+         internal fun new(): SeqLock {
+-            return SeqLock(state = AtomicUsize.new(0))
++            return SeqLock(state = AtomicLong(0L))
+         }
+     }
+ }
+@@ -65,7 +68,8 @@
+ /**
+  * An RAII guard that releases the lock and increments the stamp when dropped.
+  */
+-internal data class SeqLockWriteGuard(
++@OptIn(ExperimentalAtomicApi::class)
++internal class SeqLockWriteGuard(
+     /**
+      * The parent lock.
+      */
+@@ -73,20 +77,28 @@
+     /**
+      * The stamp before locking.
+      */
+-    public var state: ULong = 0uL,
+-) {
++    public var state: Long = 0L,
++) : AutoCloseable {
++    private var released: Boolean = false
++
+     /**
+      * Releases the lock without incrementing the stamp.
+      */
+     internal fun abort() {
+-        this.lock.state.store(this.state, Ordering.Release)
++        check(!released)
++        released = true
++        this.lock.state.store(this.state)
+         // We specifically don't want to call drop(), since that's
+         // what increments the stamp.
+-        mem.forget(this)
++        // abort consumes the Rust guard; close must not increment the stamp.
+     }
++
++    override fun close(): Unit = drop()
+ 
+     public fun drop() {
+         // Release the lock and increment the stamp.
+-        this.lock.state.store((this.state + 2), Ordering.Release)
++        if (released) return
++        released = true
++        this.lock.state.store(this.state + 2L)
+     }
+ }

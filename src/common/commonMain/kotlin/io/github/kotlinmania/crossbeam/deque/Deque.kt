@@ -58,7 +58,7 @@ public class Buffer<T>(
         // `self.cap` is always a power of two.
         // We do all the loads at `MaybeUninit` because we might realize, after loading, that we
         // don't actually have the right to access this memory.
-        return (this.ptr + ((index and (this.cap - 1).toLong()).toInt()).toLong())
+        return (this.ptr + ((index and (this.cap - 1uL).toLong()).toInt()).toLong())
     }
 
     /**
@@ -216,7 +216,7 @@ public class Worker<T>(
     /**
      * The flavor of the queue.
      */
-    public var flavor: Flavor = Flavor(),
+    public var flavor: Flavor,
     /**
      * Indicates that the worker cannot be shared among threads.
      */
@@ -536,7 +536,7 @@ public class Stealer<T>(
     /**
      * The flavor of the queue.
      */
-    public var flavor: Flavor = Flavor(),
+    public var flavor: Flavor,
 ) {
     /**
      * Returns `true` if the queue is empty.
@@ -694,7 +694,7 @@ public class Stealer<T>(
             if (dest.is_empty()) {
                 return Steal.Empty
             } else {
-                return Steal.Success()
+                return Steal.Success(Unit)
             }
         }
         // Load the front index.
@@ -819,7 +819,7 @@ public class Stealer<T>(
         // Update the back index in the destination queue.
         dest.inner.back.store(dest_b, store_order)
         // Return with success.
-        return Steal.Success()
+        return Steal.Success(Unit)
     }
 
     /**
@@ -1323,7 +1323,7 @@ public class Injector<T>(
             // If we've reached the end of the block, move to the next one.
             if (offset + 1 == BLOCK_CAP) {
                 val next = block.wait_next()
-                var next_index = ((new_head and HAS_NEXT.inv()) + (1 shl SHIFT).toLong())
+                var next_index = ((new_head and HAS_NEXT.inv()) + (1uL shl SHIFT).toULong())
                 if (!(next.next.load(Ordering.Relaxed) == 0L)) {
                     next_index = next_index or HAS_NEXT
                 }
@@ -1461,7 +1461,7 @@ public class Injector<T>(
             // If we've reached the end of the block, move to the next one.
             if (new_offset == BLOCK_CAP) {
                 val next = block.wait_next()
-                var next_index = ((new_head and HAS_NEXT.inv()) + (1 shl SHIFT).toLong())
+                var next_index = ((new_head and HAS_NEXT.inv()) + (1uL shl SHIFT).toULong())
                 if (!(next.next.load(Ordering.Relaxed) == 0L)) {
                     next_index = next_index or HAS_NEXT
                 }
@@ -1513,7 +1513,7 @@ public class Injector<T>(
                     }
                 }
             }
-            Steal.Success()
+            Steal.Success(Unit)
         }
     }
 
@@ -1637,7 +1637,7 @@ public class Injector<T>(
             // If we've reached the end of the block, move to the next one.
             if (new_offset == BLOCK_CAP) {
                 val next = block.wait_next()
-                var next_index = ((new_head and HAS_NEXT.inv()) + (1 shl SHIFT).toLong())
+                var next_index = ((new_head and HAS_NEXT.inv()) + (1uL shl SHIFT).toULong())
                 if (!(next.next.load(Ordering.Relaxed) == 0L)) {
                     next_index = next_index or HAS_NEXT
                 }
@@ -1835,11 +1835,11 @@ public class Injector<T>(
  * check(collect(mutableListOf(Retry, Empty)).orElse({ Success(1) }) == Success(1))
  * ```
  */
-public sealed class Steal<T> {
+public sealed class Steal<out T> {
     /**
      * The queue was empty at the time of stealing.
      */
-    public class Empty<T>() : Steal<T>()
+    public data object Empty : Steal<Nothing>()
     /**
      * At least one task was successfully stolen.
      */
@@ -1847,7 +1847,7 @@ public sealed class Steal<T> {
     /**
      * The steal operation needs to be retried.
      */
-    public class Retry<T>() : Steal<T>()
+    public data object Retry : Steal<Nothing>()
 
     /**
      * Returns `true` if the queue was empty at the time of stealing.
@@ -1963,7 +1963,7 @@ public sealed class Steal<T> {
      * check(Empty.orElse({ Empty }) == Empty)
      * ```
      */
-    public fun or_else(f: () -> Steal<T>): Steal<T> {
+    public fun or_else(f: () -> Steal<@UnsafeVariance T>): Steal<T> {
         return when (this) {
             Steal.Empty -> f()
             is Steal.Success -> this

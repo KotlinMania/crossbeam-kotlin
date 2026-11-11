@@ -109,7 +109,7 @@
  
      public fun drop() {
          // Release the lock and increment the stamp.
--        this.lock.state.store((this.state + 2.toLong()), Ordering.Release)
+-        this.lock.state.store((this.state + 2), Ordering.Release)
 +        if (released) return
 +        released = true
 +        this.lock.state.store(this.state + 2L)

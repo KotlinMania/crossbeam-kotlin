@@ -122,7 +122,7 @@
 +    override fun close(): Unit = drop()
 +
      public fun drop() {
--        val state_lo = (this.state_lo + 2.toLong())
+-        val state_lo = (this.state_lo + 2)
 +        if (released) return
 +        released = true
 +        val state_lo = this.state_lo + 2

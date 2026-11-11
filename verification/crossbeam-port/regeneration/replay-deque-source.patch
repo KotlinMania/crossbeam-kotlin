@@ -1,0 +1,88 @@
+--- generated.kt
++++ repaired.kt
+@@ -58,7 +58,7 @@
+         // `self.cap` is always a power of two.
+         // We do all the loads at `MaybeUninit` because we might realize, after loading, that we
+         // don't actually have the right to access this memory.
+-        return (this.ptr + ((index and (this.cap - 1).toLong()).toInt()).toLong())
++        return (this.ptr + ((index and (this.cap - 1uL).toLong()).toInt()).toLong())
+     }
+ 
+     /**
+@@ -216,7 +216,7 @@
+     /**
+      * The flavor of the queue.
+      */
+-    public var flavor: Flavor = Flavor(),
++    public var flavor: Flavor,
+     /**
+      * Indicates that the worker cannot be shared among threads.
+      */
+@@ -536,7 +536,7 @@
+     /**
+      * The flavor of the queue.
+      */
+-    public var flavor: Flavor = Flavor(),
++    public var flavor: Flavor,
+ ) {
+     /**
+      * Returns `true` if the queue is empty.
+@@ -694,7 +694,7 @@
+             if (dest.is_empty()) {
+                 return Steal.Empty
+             } else {
+-                return Steal.Success()
++                return Steal.Success(Unit)
+             }
+         }
+         // Load the front index.
+@@ -819,7 +819,7 @@
+         // Update the back index in the destination queue.
+         dest.inner.back.store(dest_b, store_order)
+         // Return with success.
+-        return Steal.Success()
++        return Steal.Success(Unit)
+     }
+ 
+     /**
+@@ -1513,7 +1513,7 @@
+                     }
+                 }
+             }
+-            Steal.Success()
++            Steal.Success(Unit)
+         }
+     }
+ 
+@@ -1835,11 +1835,11 @@
+  * check(collect(mutableListOf(Retry, Empty)).orElse({ Success(1) }) == Success(1))
+  * ```
+  */
+-public sealed class Steal<T> {
++public sealed class Steal<out T> {
+     /**
+      * The queue was empty at the time of stealing.
+      */
+-    public class Empty<T>() : Steal<T>()
++    public data object Empty : Steal<Nothing>()
+     /**
+      * At least one task was successfully stolen.
+      */
+@@ -1847,7 +1847,7 @@
+     /**
+      * The steal operation needs to be retried.
+      */
+-    public class Retry<T>() : Steal<T>()
++    public data object Retry : Steal<Nothing>()
+ 
+     /**
+      * Returns `true` if the queue was empty at the time of stealing.
+@@ -1963,7 +1963,7 @@
+      * check(Empty.orElse({ Empty }) == Empty)
+      * ```
+      */
+-    public fun or_else(f: () -> Steal<T>): Steal<T> {
++    public fun or_else(f: () -> Steal<@UnsafeVariance T>): Steal<T> {
+         return when (this) {
+             Steal.Empty -> f()
+             is Steal.Success -> this

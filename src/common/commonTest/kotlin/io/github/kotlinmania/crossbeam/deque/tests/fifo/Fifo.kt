@@ -4,10 +4,10 @@ package io.github.kotlinmania.crossbeam.deque.tests.fifo
 import io.github.kotlinmania.crossbeam.deque.Worker
 import io.github.kotlinmania.crossbeam.deque.crossbeamchannel.src.utils.Mutex
 import io.github.kotlinmania.crossbeam.deque.crossbeamutils.tests.thread.THREADS
-import io.github.kotlinmania.crossbeam.deque.steal.Empty
-import io.github.kotlinmania.crossbeam.deque.steal.Success
+import io.github.kotlinmania.crossbeam.deque.Steal.Empty
+import io.github.kotlinmania.crossbeam.deque.Steal.Success
 import io.github.kotlinmania.crossbeam.utils.thread.scope
-import io.github.kotlinmania.rand.Rng
+import io.github.kotlinmania.rand.rngs.threadRng
 
 @kotlin.test.Test
 public fun smoke() {
@@ -169,10 +169,10 @@ public fun stress() {
                 }
             })
         }
-        var rng = thread_rng()
+        var rng = threadRng()
         var expected = 0
         while (expected < COUNT) {
-            if (rng.gen_range(0 until 3) == 0) {
+            if (rng.randomRange(0 until 3) == 0) {
                 while (w.pop() != null) {
                     hits.fetch_add(1, SeqCst)
                 }
@@ -226,11 +226,11 @@ public fun no_starvation() {
                 }
             })
         }
-        var rng = thread_rng()
+        var rng = threadRng()
         var my_hits = 0
         while (true) {
-            for (i in 0 until rng.gen_range(0 until COUNT)) {
-                if (rng.gen_range(0 until 3) == 0 && my_hits == 0) {
+            for (i in 0 until rng.randomRange(0 until COUNT)) {
+                if (rng.randomRange(0 until 3) == 0 && my_hits == 0) {
                     while (w.pop() != null) {
                         my_hits += 1
                     }

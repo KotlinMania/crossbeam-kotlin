@@ -13,15 +13,14 @@ plugins {
 // Isolate outputs when allocated; this fixture never writes into producer checkouts.
 providers.gradleProperty("consumerBuildRoot").orNull?.let { layout.buildDirectory.set(file(it)) }
 val expectedVersions = mapOf(
-    "async-trait-kotlin" to providers.gradleProperty("asyncVersion").get(),
-    "android-system-properties-kotlin" to providers.gradleProperty("systemPropertiesVersion").get(),
+    "crossbeam-kotlin" to providers.gradleProperty("crossbeamVersion").orElse("0.1.1").get(),
 )
 kotlin {
     jvmToolchain(21)
     compilerOptions { allWarningsAsErrors.set(true) }
     android {
-        namespace = "io.github.kotlinmania.template.publicationconsumer"
-        compileSdk = providers.gradleProperty("consumerCompileSdk").get().toInt()
+        namespace = "io.github.kotlinmania.crossbeam.publicationconsumer"
+        compileSdk = providers.gradleProperty("consumerCompileSdk").orElse("34").get().toInt()
         minSdk = 24
         withHostTestBuilder { sourceSetTreeName = "test" }
     }
@@ -82,7 +81,7 @@ kotlin.targets.named("android") {
                         selections += "${owner.group}:${owner.module}:${owner.version} $attributes"
                     }
                 check(selections.size == expectedVersions.size) { "Not every root dependency selected an Android AAR" }
-                val expected = setOf("publishedAsyncResultAndQuoteApi", "publishedThrowingApi", "publishedAndroidPropertyInputValidation")
+                val expected = setOf("publishedBackoffSpinRustdoc")
                 val executed = mutableSetOf<String>()
                 check(hostTests.size == 1)
                 val parser = DocumentBuilderFactory.newInstance().newDocumentBuilder()

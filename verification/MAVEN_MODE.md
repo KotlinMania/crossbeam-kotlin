@@ -1,7 +1,7 @@
 # Maven repository mode
 
 `maven.properties` is the source of truth for repository mode and the local
-repository path. The template starts with:
+repository path. This project starts with:
 
 ```properties
 maven.local=true

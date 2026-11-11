@@ -1,7 +1,7 @@
 {
   "status": "Actual native-kexe output emitted directly into product/test/example/benchmark paths, then only recorded necessary repairs. Compilation/runtime acceptance is not claimed.",
   "binary": "/Volumes/stuff/Projects/kotlinmania/rust-kotlin/build/bin/macosArm64/debugExecutable/rust-kotlin.kexe",
-  "binary_sha256": "4e882c692974abb057b6892486ab7503b71f80428e36f21deef029e596efb192",
+  "binary_sha256": "29e6a05a72c3be0844fe72f426943df30fef4c6f47b581121195176d40063543",
   "upstream_commit": "2920c984290229ab4e0ca0452ef09e48a82063f3",
   "removed_manual_files": [
     "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Injector.kt",
@@ -76,13 +76,13 @@
     {
       "source": "tmp/crossbeam/crossbeam-utils/src/atomic/seq_lock.rs",
       "adopted": "src/common/seqLock64Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLock.kt",
-      "native_emitted_sha256_before_repairs": "88c1371e13bae362447c973d5b6f35e05b1872a17836c5fdab210d345f1bd654",
+      "native_emitted_sha256_before_repairs": "3f9b4d1c685a99765a58cb803fdb5abe748d3f375bc014a6ae4f7aaed354f525",
       "direct_native_output": true
     },
     {
       "source": "tmp/crossbeam/crossbeam-utils/src/atomic/seq_lock_wide.rs",
       "adopted": "src/common/seqLock32Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlockwide/SeqLockWide.kt",
-      "native_emitted_sha256_before_repairs": "65788844eb42420a2cbaa77b6a9525edb11f1272794c5d9092a1228b7e2e0b82",
+      "native_emitted_sha256_before_repairs": "5139f613cf73a337b83f62867f49d6d0a7ad776f32de57ff4881dd30c68ef6d6",
       "direct_native_output": true
     },
     {
@@ -178,7 +178,7 @@
     {
       "source": "tmp/crossbeam/crossbeam-epoch/examples/sanitize.rs",
       "adopted": "examples/kotlin/io/github/kotlinmania/crossbeam/epoch/examples/sanitize/Sanitize.kt",
-      "native_emitted_sha256_before_repairs": "8fe60a6acfa228d4d4650c223add7831f8883b89dca3454995a43ecb27f8ad7f",
+      "native_emitted_sha256_before_repairs": "4371b8adba79acf702453e1a8f0127a7b8732c9cfc5f12b5808edfd11e9fd181",
       "direct_native_output": true
     },
     {
@@ -202,7 +202,7 @@
     {
       "source": "tmp/crossbeam/crossbeam-epoch/src/epoch.rs",
       "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/epoch/Epoch.kt",
-      "native_emitted_sha256_before_repairs": "b6f722f1f193ec08290c09a3ecc2151f7df4aed6f87c7bb27e40932c5162d671",
+      "native_emitted_sha256_before_repairs": "0bb656d0548e50c696210780f29a692695408f9853335ed93ca802692d9408c1",
       "direct_native_output": true
     },
     {
@@ -226,7 +226,7 @@
     {
       "source": "tmp/crossbeam/crossbeam-deque/src/deque.rs",
       "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/deque/Deque.kt",
-      "native_emitted_sha256_before_repairs": "6ded95bea9a133997e8c3ef12b79e380642f5dbe252ada74b6035799f54fe31f",
+      "native_emitted_sha256_before_repairs": "42101ea9d2009c61aefe75b77305d91dc44a26e2505b27683be635e519ad8b4a",
       "direct_native_output": true
     },
     {
@@ -309,18 +309,36 @@
     {
       "adopted": "src/common/seqLock64Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLock.kt",
       "operations": [
-        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names."
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names.",
+        "Replay tested Kotlin atomics/closure and original Rust test repairs; physical closure placement is runtime-selected."
       ],
       "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-SeqLock-5acdf5c134.patch",
-      "adopted_sha256": "ced4f27835d3373b303c96caf7201389731124408177f4d8ee7e56c34568c300"
+      "adopted_sha256": "a2a4fd5b7ab3447cf35d5b7715dbfd2f7a7e563924254fae2bcab0f5cc9890dd"
+    },
+    {
+      "adopted": "src/common/seqLock64Test/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLockInlineTests.kt",
+      "operations": [
+        "Replay tested Kotlin atomics/closure and original Rust test repairs; physical closure placement is runtime-selected."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-SeqLockInlineTests-7bde975c2c.patch",
+      "adopted_sha256": "31691995d27c5486903c888f89565538360e33c6fdb42b159fcb21674e407450"
     },
     {
       "adopted": "src/common/seqLock32Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlockwide/SeqLockWide.kt",
       "operations": [
-        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names."
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names.",
+        "Replay tested Kotlin atomics/closure and original Rust test repairs; physical closure placement is runtime-selected."
       ],
       "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-SeqLockWide-b478d13557.patch",
-      "adopted_sha256": "3d59f8504eb8d8f1d8188da911f73ee484fcce56a90795d931a847da664103bb"
+      "adopted_sha256": "46a788a8b501045d348c4eab86e8267d3b9d2cbcb4c06f316435405133f6d46a"
+    },
+    {
+      "adopted": "src/common/seqLock32Test/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlockwide/SeqLockWideInlineTests.kt",
+      "operations": [
+        "Replay tested Kotlin atomics/closure and original Rust test repairs; physical closure placement is runtime-selected."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-SeqLockWideInlineTests-43c5f289bf.patch",
+      "adopted_sha256": "c4333c7b81ddc802486a366b4a4da5e9526e8486176ea040db9e5e0f1bff48a3"
     },
     {
       "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/backoff/Backoff.kt",
@@ -333,10 +351,11 @@
     {
       "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/sync/shardedlock/ShardedLock.kt",
       "operations": [
-        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names."
+        "Canonical declaration imports; no facade; remove false unrelated channel imports for local names.",
+        "Replay tested Kotlin atomics/closure and original Rust test repairs; physical closure placement is runtime-selected."
       ],
       "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-ShardedLock-f2a1af5b71.patch",
-      "adopted_sha256": "d88746f32d0bbdde653b90e6a1554cc38b117d8b28b014823689c3c58105d85b"
+      "adopted_sha256": "b30414e826d6c4a9c31aec4092beeb04f1ea595859364db9d4517d4df3d59400"
     },
     {
       "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/utils/thread/Thread.kt",
@@ -412,7 +431,7 @@
         "Canonical declaration imports; no facade; remove false unrelated channel imports for local names."
       ],
       "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Sanitize-9121c618f4.patch",
-      "adopted_sha256": "80aa88ff0436671d76cfb3745a5c3685fcc8dffade445559f9ef31f747158e7a"
+      "adopted_sha256": "40147d8926f6b8a5e1ab9e22f3e72ae85df64144d330f1ddf0b721d16ac29cd0"
     },
     {
       "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/atomic/Atomic.kt",
@@ -423,6 +442,15 @@
       "adopted_sha256": "c20c4f26b8df10ea1257aafcb57e5c098ab61ea2c30674d5e1501c89041db583"
     },
     {
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/default/Default.kt",
+      "operations": [
+        "Canonical source-explicit crossbeam thread scope function placement.",
+        "Replay tested Kotlin atomics/closure and original Rust test repairs; physical closure placement is runtime-selected."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Default-eb7db4afc7.patch",
+      "adopted_sha256": "a86dda21700cad3dc03332d545ae7c20550996425e1510d90a69bb1ff91f7786"
+    },
+    {
       "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/default/DefaultInlineTests.kt",
       "operations": [
         "Canonical declaration imports; no facade; remove false unrelated channel imports for local names.",
@@ -430,6 +458,30 @@
       ],
       "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-DefaultInlineTests-c993c09c1c.patch",
       "adopted_sha256": "2996bbf7727b4c5c3763ad3200c6b6846d289e4a525cfd67f09f6ab3749a408a"
+    },
+    {
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/deferred/Deferred.kt",
+      "operations": [
+        "Replay tested Kotlin atomics/closure and original Rust test repairs; physical closure placement is runtime-selected."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Deferred-38ace6a076.patch",
+      "adopted_sha256": "0f6f02ea809925ab6158fcf1faaf5b27cc1eac6684e5735e29a0eec7830c31aa"
+    },
+    {
+      "adopted": "src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/deferred/DeferredInlineTests.kt",
+      "operations": [
+        "Replay tested Kotlin atomics/closure and original Rust test repairs; physical closure placement is runtime-selected."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-DeferredInlineTests-9071b4deb9.patch",
+      "adopted_sha256": "c22b039d56b40c831a44a70036865b03fa1f1bed1a6ec651494b8e0601f1d262"
+    },
+    {
+      "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/epoch/Epoch.kt",
+      "operations": [
+        "Replay tested Kotlin atomics/closure and original Rust test repairs; physical closure placement is runtime-selected."
+      ],
+      "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Epoch-34c6ec6e5f.patch",
+      "adopted_sha256": "acf41becc0fee53f7df4b7551fefc97257be8238a5f5545ad2f0de14a58f4d09"
     },
     {
       "adopted": "src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/sync/list/List.kt",
@@ -474,7 +526,7 @@
         "Canonical epoch free-function namespace placement only."
       ],
       "diff": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-repair-Deque-deb79027ac.patch",
-      "adopted_sha256": "2a8b1bbfe576055a5b3b07ebc3bc072be4bc9c9c5890844e85f0acfd789d7e70"
+      "adopted_sha256": "492f84b9fd8e968ba183e745d8f332b3711fd1e9e7e198e1bc3ac436795aefd0"
     }
   ],
   "emissions": [
@@ -6969,44 +7021,5 @@
   ],
   "no_snapshots": true,
   "test_limits": "Only original Rust standalone/inline test emission; no old manual test reuse or invented tests. Rustdoc examples are not automatically emitted as executable tests by this CLI.",
-  "validation": {
-    "generator_sha256": "4e882c692974abb057b6892486ab7503b71f80428e36f21deef029e596efb192",
-    "profile": "raw ABI; actual rustc target facts; std+alloc; direct product/standalone/inline test output",
-    "result": "metadata compilation failed; no tests executed",
-    "compiler_diagnostics": 1478,
-    "log": "build/reports/crossbeam-port/redo-fail-safe-compile.log",
-    "rejected_sources": [
-      {
-        "source": "tmp/crossbeam/crossbeam-utils/src/atomic/atomic_cell.rs",
-        "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop, needs_drop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
-        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-utils-src-atomic-atomic_cell.log"
-      },
-      {
-        "source": "tmp/crossbeam/crossbeam-utils/src/sync/wait_group.rs",
-        "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
-        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-utils-src-sync-wait_group.log"
-      },
-      {
-        "source": "tmp/crossbeam/crossbeam-epoch/src/collector.rs",
-        "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
-        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-collector.log"
-      },
-      {
-        "source": "tmp/crossbeam/crossbeam-epoch/src/guard.rs",
-        "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
-        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-guard.log"
-      },
-      {
-        "source": "tmp/crossbeam/crossbeam-epoch/src/internal.rs",
-        "reason": "rust-kotlin: Unsupported Rust destructor-suppression semantics (ManuallyDrop): Kotlin has no deterministic Drop or ManuallyDrop/needs_drop runtime equivalent",
-        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-internal.log"
-      },
-      {
-        "source": "tmp/crossbeam/crossbeam-epoch/src/lib.rs",
-        "reason": "rust-kotlin: Unsupported shadowed standard-library cell: core::cell::UnsafeCell must not resolve to the same-file UnsafeCell wrapper",
-        "log": "/Volumes/stuff/Projects/kotlinmania/crossbeam-kotlin/verification/crossbeam-port/regeneration/current-epoch-src-lib.log"
-      }
-    ],
-    "test_annotations_in_commonMain": 0
-  }
+  "validation": "Pending metadata compilation after this generation; all pre-reset passing counts remain historical."
 }

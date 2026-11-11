@@ -27,6 +27,7 @@ for name in owned:
     if f.exists():
         f.unlink()
 records, adopted, inline, repairs = [], [], [], []
+pending_repairs = []
 rustc = '/opt/homebrew/bin/rustc'
 rust_version = subprocess.check_output([rustc, '--version'], text=True).strip()
 target_cfg = {}
@@ -39,6 +40,9 @@ def narrow_repairs(path, source, text):
     result = text
     operations = []
     pairs = {
+        'io.github.kotlinmania.crossbeam.deque.steal.Empty': 'io.github.kotlinmania.crossbeam.deque.Steal.Empty',
+        'io.github.kotlinmania.crossbeam.deque.steal.Retry': 'io.github.kotlinmania.crossbeam.deque.Steal.Retry',
+        'io.github.kotlinmania.crossbeam.deque.steal.Success': 'io.github.kotlinmania.crossbeam.deque.Steal.Success',
         'io.github.kotlinmania.crossbeam.epoch.Atomic': 'io.github.kotlinmania.crossbeam.epoch.atomic.Atomic',
         'io.github.kotlinmania.crossbeam.epoch.Owned': 'io.github.kotlinmania.crossbeam.epoch.atomic.Owned',
         'io.github.kotlinmania.crossbeam.epoch.Shared': 'io.github.kotlinmania.crossbeam.epoch.atomic.Shared',
@@ -109,13 +113,18 @@ def narrow_repairs(path, source, text):
             assert position != -1, 'Unexpected emitted Backoff companion boundary'
             result = result[:position] + '\n        public fun default(): Backoff = Backoff.new()\n' + result[position:]
         operations.append('Backoff bounded Cell<u32> scalar/private visibility, actual spin/yield adapters, literal/range fixes, original std branch, nested Cell Debug rendering and explicit documentation limits. See exact diff.')
+    if 'crossbeam-deque/tests/' in source:
+        result = result.replace('import io.github.kotlinmania.rand.Rng', 'import io.github.kotlinmania.rand.rngs.threadRng').replace('thread_rng()', 'threadRng()').replace('.gen_range(', '.randomRange(')
+        if source.endswith('/tests/steal.rs'):
+            result = result.replace('Worker.new_fifo()', 'Worker.new_fifo<Int>()').replace('Worker.new_lifo()', 'Worker.new_lifo<Int>()').replace('Injector.new()', 'Injector.new<Int>()').replace('Success()', 'Success(Unit)')
+        operations.append('Original test calls use real Rand Kotlin threadRng/randomRange, canonical Steal variants and explicit Int/Unit types; assertions retained.')
     replay_name = None
     for rust_name, repair_name in [('seq_lock.rs', 'seq_lock'), ('seq_lock_wide.rs', 'seq_lock_wide'), ('deferred.rs', 'deferred')]:
         if source.endswith('/src/atomic/' + rust_name) or source.endswith('crossbeam-epoch/src/' + rust_name):
             replay_name = repair_name + ('-tests' if path.name.endswith('InlineTests.kt') else '-source')
             break
     if not path.name.endswith('InlineTests.kt'):
-        for rust_path, repair_name in [('crossbeam-epoch/src/default.rs', 'default-source'), ('crossbeam-utils/src/sync/sharded_lock.rs', 'sharded_lock-source'), ('crossbeam-epoch/src/epoch.rs', 'epoch-source')]:
+        for rust_path, repair_name in [('crossbeam-deque/src/deque.rs', 'deque-source'), ('crossbeam-epoch/src/default.rs', 'default-source'), ('crossbeam-utils/src/sync/sharded_lock.rs', 'sharded_lock-source'), ('crossbeam-epoch/src/epoch.rs', 'epoch-source')]:
             if source.endswith(rust_path):
                 replay_name = repair_name
                 break
@@ -204,13 +213,16 @@ for crate, name in [('crossbeam-utils', 'utils'), ('crossbeam-epoch', 'epoch'), 
             entry = {'source': str(source), 'adopted': str(path), 'native_emitted_sha256_before_repairs': sha(path), 'direct_native_output': True}
             adopted.append(entry)
             record['emitted_files'].append(str(path))
-            narrow_repairs(path, str(source), raw_text)
+            pending_repairs.append((path, str(source), raw_text))
         if expected_test.exists():
             entry = {'source': str(source), 'adopted': str(expected_test), 'native_emitted_sha256_before_repairs': sha(expected_test), 'direct_native_output': True, 'qualified_test_annotations': expected_test.read_text().count('@kotlin.test.Test')}
             inline.append(entry)
-            narrow_repairs(expected_test, str(source), expected_test.read_text())
+            pending_repairs.append((expected_test, str(source), expected_test.read_text()))
         records.append(record)
 assert sha(BINARY) == args.expected_sha, 'Translator changed during generation'
+# Complete whole-upstream emission before applying any project repairs.
+for repair_path, repair_source, repair_text in pending_repairs:
+    narrow_repairs(repair_path, repair_source, repair_text)
 report = {'status': 'Actual native-kexe output emitted directly into product/test/example/benchmark paths, then only recorded necessary repairs. Compilation/runtime acceptance is not claimed.', 'binary': str(BINARY), 'binary_sha256': args.expected_sha, 'upstream_commit': '2920c984290229ab4e0ca0452ef09e48a82063f3', 'removed_manual_files': old['removed_manual_files'], 'adopted_emission_files': adopted, 'inline_test_files': inline, 'necessary_repairs_after_adoption': repairs, 'emissions': records, 'no_snapshots': True, 'test_limits': 'Only original Rust standalone/inline test emission; no old manual test reuse or invented tests. Rustdoc examples are not automatically emitted as executable tests by this CLI.', 'validation': 'Pending metadata compilation after this generation; all pre-reset passing counts remain historical.'}
 (RECEIPTS / 'redo-adoption.json').write_text(json.dumps(report, indent=2) + '\n')
 print(json.dumps({'inputs': len(records), 'directly_adopted_files': len(adopted), 'inline_test_files': len(inline), 'inline_test_annotations': sum(x['qualified_test_annotations'] for x in inline), 'rejected': [x['source'] for x in records if x['exit_code']]}, indent=2))

@@ -16,7 +16,7 @@ src/native/interop/cinterop/
                               target is unavailable on the build host)
 ```
 
-The template default ships `Ffi.def` + `ffi_wrapper.{h,c}` with one real
+This project default ships `Ffi.def` + `ffi_wrapper.{h,c}` with one real
 function (`ffi_errno`, a pointer-returning `errno` accessor) so the build
 wiring is provably correct before any library surface is added.
 

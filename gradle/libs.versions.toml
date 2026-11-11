@@ -4,6 +4,7 @@ coroutines = "1.11.0"
 serialization = "1.11.0"
 datetime = "0.8.0"
 collectionsImmutable = "0.5.2"
+randKotlin = "0.2.0"
 androidKmp = "9.4.1"
 detekt = "2.0.0-alpha.6"
 ktlint = "14.2.0"
@@ -23,6 +24,7 @@ detekt = { id = "dev.detekt", version.ref = "detekt" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
 
 [libraries]
+rand-kotlin = { module = "io.github.kotlinmania:rand-kotlin", version.ref = "randKotlin" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "serialization" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
@@ -37,3 +39,5 @@ crossbeam-commonMain = [
   "kotlinx-coroutines-core",
   "collections-immutable",
 ]
+
+crossbeam-commonTest = ["rand-kotlin"]

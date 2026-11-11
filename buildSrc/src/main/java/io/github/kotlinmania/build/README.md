@@ -1,6 +1,6 @@
 # Product build helpers
 
-This directory contains the four Java helpers used to build the template's product
+This directory contains the four Java helpers used to build Crossbeam's product
 artifacts. Their source documentation uses Java 23+ Markdown JavaDoc (`///`).
 The implementation still targets the Java 21 toolchain configured in
 `buildSrc/build.gradle.kts`; changing documentation syntax does not change that target.
@@ -157,7 +157,7 @@ Use Javadoc 23 or newer for Markdown comments. The installed tool checked here i
 for the modern documentation tool does not select a Java 21 Javadoc executable.
 Older Javadoc tools were not run, and the Gradle `javadoc` task was not used.
 
-From the template directory, this command uses existing Gradle 9.8.2 library JARs.
+From the project directory, this command uses existing Gradle 9.8.2 library JARs.
 Set `GRADLE_HOME` to that installed distribution before running it. If the cached
 Gradle API JAR is absent, this command does not install or generate it.
 

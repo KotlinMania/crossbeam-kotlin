@@ -1,11 +1,29 @@
 --- native-kexe-emission:src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/epoch/Epoch.kt
 +++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/epoch/Epoch.kt
-@@ -1,7 +1,7 @@
- // port-lint: source crossbeam-epoch/src/epoch.rs
- package io.github.kotlinmania.crossbeam.epoch.epoch
+@@ -45,7 +45,7 @@
+         // The result is the same with `(self.data & !1).wrapping_sub(rhs.data & !1) as Long>> 1`,
+         // because the possible difference of LSB in `(self.data & !1).wrapping_sub(rhs.data & !1)`
+         // will be ignored in the shift operation.
+-        return (this.data - rhs.data and 1uL.inv()).toLong() shr 1
++        return (this.data - (rhs.data and 1uL.inv())).toLong() shr 1
+     }
  
--import io.github.kotlinmania.crossbeam.epoch.crossbeamepoch.src.atomic.Atomic
-+import io.github.kotlinmania.crossbeam.epoch.atomic.Atomic
- import io.github.kotlinmania.crossbeam.epoch.primitive.sync.atomic.Ordering
+     /**
+@@ -75,7 +75,7 @@
+      * The returned epoch will be marked as pinned only if the previous one was as well.
+      */
+     internal fun successor(): Epoch {
+-        return Epoch(data = (this.data + 2uL))
++        return Epoch(data = this.data + 2uL)
+     }
  
- // The global epoch
+     public companion object {
+@@ -83,7 +83,7 @@
+          * Returns the starting epoch in unpinned state.
+          */
+         internal fun starting(): Epoch {
+-            return Epoch.default()
++            return Epoch()
+         }
+     }
+ }

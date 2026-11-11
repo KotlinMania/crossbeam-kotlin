@@ -4,7 +4,7 @@
          // The result is the same with `(self.data & !1).wrapping_sub(rhs.data & !1) as Long>> 1`,
          // because the possible difference of LSB in `(self.data & !1).wrapping_sub(rhs.data & !1)`
          // will be ignored in the shift operation.
--        return (this.data - (rhs.data and 1uL.inv()).toLong()).toLong() shr 1
+-        return (this.data - rhs.data and 1uL.inv()).toLong() shr 1
 +        return (this.data - (rhs.data and 1uL.inv())).toLong() shr 1
      }
  
@@ -13,7 +13,7 @@
       * The returned epoch will be marked as pinned only if the previous one was as well.
       */
      internal fun successor(): Epoch {
--        return Epoch(data = (this.data + 2.toLong()))
+-        return Epoch(data = (this.data + 2uL))
 +        return Epoch(data = this.data + 2uL)
      }
  

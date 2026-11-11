@@ -1,20 +1,17 @@
+// port-lint: source crossbeam-utils/src/backoff.rs
+// The original Backoff::spin Rustdoc function, calling the published artifact.
+@file:OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
+
 package consumer
 
-import io.github.kotlinmania.androidsystemproperties.AndroidSystemProperties
-import io.github.kotlinmania.asynctrait.InferredBound
-import io.github.kotlinmania.asynctrait.asyncTrait
-import io.github.kotlinmania.asynctrait.asyncTraitOrThrow
-import io.github.kotlinmania.procmacro2.TokenStream
-import io.github.kotlinmania.quote.ToTokens
-import io.github.kotlinmania.quote.quote
-import io.github.kotlinmania.syn.TokenStreamParseResult
+import io.github.kotlinmania.crossbeam.utils.backoff.Backoff
+import kotlin.concurrent.atomics.AtomicLong
 
-fun expandedResult(): TokenStreamParseResult =
-    asyncTrait(quote(""), quote("trait Consumer { async fn run(&self); }"))
-
-fun expandedTokens(): TokenStream =
-    asyncTraitOrThrow(quote(""), quote("trait Consumer { async fn run(&self); }"))
-
-fun inferredBound(): ToTokens = InferredBound.Send
-
-fun invalidProperty(): String? = AndroidSystemProperties.new().get("ro.product\u0000model")
+fun fetchMul(a: AtomicLong, b: Long): Long {
+    val backoff = Backoff.new()
+    while (true) {
+        val value = a.load()
+        if (a.compareAndSet(value, value * b)) return value
+        backoff.spin()
+    }
+}

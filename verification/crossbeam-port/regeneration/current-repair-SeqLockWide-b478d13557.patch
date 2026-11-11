@@ -1,11 +1,146 @@
 --- native-kexe-emission:src/common/seqLock32Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlockwide/SeqLockWide.kt
 +++ src/common/seqLock32Main/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlockwide/SeqLockWide.kt
-@@ -1,7 +1,7 @@
+@@ -1,7 +1,9 @@
  // port-lint: source crossbeam-utils/src/atomic/seq_lock_wide.rs
  package io.github.kotlinmania.crossbeam.utils.atomic.seqlockwide
  
 -import io.github.kotlinmania.crossbeam.utils.crossbeamutils.src.backoff.Backoff
 +import io.github.kotlinmania.crossbeam.utils.backoff.Backoff
++import kotlin.concurrent.atomics.AtomicInt
++import kotlin.concurrent.atomics.ExperimentalAtomicApi
  
  /**
   * A simple stamped lock.
+@@ -9,18 +11,19 @@
+  * The state is represented as two `AtomicUsize`: `state_hi` for high bits and `state_lo` for low
+  * bits.
+  */
+-internal data class SeqLock(
++@OptIn(ExperimentalAtomicApi::class)
++internal class SeqLock(
+     /**
+      * The high bits of the current state of the lock.
+      */
+-    public var state_hi: AtomicUsize = AtomicUsize(),
++    public var state_hi: AtomicInt = AtomicInt(0),
+     /**
+      * The low bits of the current state of the lock.
+      *
+      * All bits except the least significant one hold the current stamp. When locked, the state_lo
+      * equals 1 and doesn't contain a valid stamp.
+      */
+-    public var state_lo: AtomicUsize = AtomicUsize(),
++    public var state_lo: AtomicInt = AtomicInt(0),
+ ) {
+     /**
+      * If not locked, returns the current stamp.
+@@ -34,8 +37,8 @@
+         // As a consequence, we can make sure that (1) all writes within the era of `state_hi - 1`
+         // happens before now; and therefore, (2) if `state_lo` is even, all writes within the
+         // critical section of (`state_hi`, `state_lo`) happens before now.
+-        val state_hi = this.state_hi.load(Ordering.Acquire)
+-        val state_lo = this.state_lo.load(Ordering.Acquire)
++        val state_hi = this.state_hi.load()
++        val state_lo = this.state_lo.load()
+         return if (state_lo == 1) {
+             null
+         } else {
+@@ -53,16 +56,17 @@
+         // Thanks to the fence, if we're noticing any modification to the data at the critical
+         // section of `(a, b)`, then the critical section's write of 1 to state_lo should be
+         // visible.
+-        atomic.fence(Ordering.Acquire)
++        // Sequentially consistent RMW supplies the Rust acquire fence.
++        this.state_lo.fetchAndAdd(0)
+         // So if `state_lo` coincides with `stamp.1`, then either (1) we're noticing no modification
+         // to the data after the critical section of `(stamp.0, stamp.1)`, or (2) `state_lo` wrapped
+         // around.
+         //
+         // If (2) is the case, the acquire ordering ensures we see the new value of `state_hi`.
+-        val state_lo = this.state_lo.load(Ordering.Acquire)
++        val state_lo = this.state_lo.load()
+         // If (2) is the case and `state_hi` coincides with `stamp.0`, then `state_hi` also wrapped
+         // around, which we give up to correctly validate the read.
+-        val state_hi = this.state_hi.load(Ordering.Relaxed)
++        val state_hi = this.state_hi.load()
+         // Except for the case that both `state_hi` and `state_lo` wrapped around, the following
+         // condition implies that we're noticing no modification to the data after the critical
+         // section of `(stamp.0, stamp.1)`.
+@@ -75,11 +79,11 @@
+     internal fun write(): SeqLockWriteGuard {
+         val backoff = Backoff.new()
+         while (true) {
+-            val previous = this.state_lo.swap(1, Ordering.Acquire)
++            val previous = this.state_lo.exchange(1)
+             if (previous != 1) {
+                 // To synchronize with the acquire fence in `validate_read` via any modification to
+                 // the data at the critical section of `(state_hi, previous)`.
+-                atomic.fence(Ordering.Release)
++                // exchange is sequentially consistent, stronger than the Rust release fence.
+                 return SeqLockWriteGuard(lock = this, state_lo = previous)
+             }
+             backoff.snooze()
+@@ -88,7 +92,7 @@
+ 
+     public companion object {
+         internal fun new(): SeqLock {
+-            return SeqLock(state_hi = AtomicUsize.new(0), state_lo = AtomicUsize.new(0))
++            return SeqLock(state_hi = AtomicInt(0), state_lo = AtomicInt(0))
+         }
+     }
+ }
+@@ -96,7 +100,8 @@
+ /**
+  * An RAII guard that releases the lock and increments the stamp when dropped.
+  */
+-internal data class SeqLockWriteGuard(
++@OptIn(ExperimentalAtomicApi::class)
++internal class SeqLockWriteGuard(
+     /**
+      * The parent lock.
+      */
+@@ -104,28 +109,36 @@
+     /**
+      * The stamp before locking.
+      */
+-    public var state_lo: UInt = 0u,
+-) {
++    public var state_lo: Int = 0,
++) : AutoCloseable {
++    private var released: Boolean = false
++
+     /**
+      * Releases the lock without incrementing the stamp.
+      */
+     internal fun abort() {
+-        this.lock.state_lo.store(this.state_lo, Ordering.Release)
+-        mem.forget(this)
++        check(!released)
++        released = true
++        this.lock.state_lo.store(this.state_lo)
++        // abort consumes the Rust guard; close must not increment the stamp.
+     }
+ 
++    override fun close(): Unit = drop()
++
+     public fun drop() {
+-        val state_lo = (this.state_lo + 2)
++        if (released) return
++        released = true
++        val state_lo = this.state_lo + 2
+         // Increase the high bits if the low bits wrap around.
+         //
+         // Release ordering for synchronizing with `optimistic_read`.
+         if (state_lo == 0) {
+-            val state_hi = this.lock.state_hi.load(Ordering.Relaxed)
+-            this.lock.state_hi.store((state_hi + 1.toLong()), Ordering.Release)
++            val state_hi = this.lock.state_hi.load()
++            this.lock.state_hi.store(state_hi + 1)
+         }
+         // Release the lock and increment the stamp.
+         //
+         // Release ordering for synchronizing with `optimistic_read`.
+-        this.lock.state_lo.store(state_lo, Ordering.Release)
++        this.lock.state_lo.store(state_lo)
+     }
+ }

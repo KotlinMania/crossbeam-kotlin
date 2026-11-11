@@ -28,15 +28,15 @@ From the project root, generate the full companion group for review:
 
 Review the complete generated files against the integrated sources rather than
 blindly overwriting manual integration repairs. The N-API C++ companion is
-retained byte-for-byte at the template's `src/ffi_bindings.cpp` location. The
+retained byte-for-byte at Crossbeam's `src/ffi_bindings.cpp` location. The
 JS/WasmJS companions retain their generated calls and unsigned-decimal return
-conversion. Their loaders are adapted to the template's `Ffi` naming,
+conversion. Their loaders are adapted to Crossbeam's `Ffi` naming,
 `@kotlinmania/ffi-native-bindings` package, and `dist` layout. They propagate a
 broken installed addon's load error instead of silently selecting a stale
 binary. The project-local source fallback is restricted to this addon's
-`dist/index.js`, not the template's old build directory.
+`dist/index.js`, not Crossbeam's old build directory.
 
-`binding.gyp` adds the canonical C header directory. The template Java
+`binding.gyp` adds the canonical C header directory. This project Java
 `NodeFfiBuilder` detects the generated registrar chain and supplies the module
 entry point; no handwritten N-API exports replace the generated ones.
 
@@ -50,7 +50,7 @@ All three channels are configured independently in `gradle.properties`:
 ./gradlew jsNodeTest wasmJsNodeTest
 ```
 
-The template builder installs `node-addon-api` headers with package scripts
+This project builder installs `node-addon-api` headers with package scripts
 disabled, uses Gradle's pinned Node executable and matching verified headers,
 and builds `dist/build/{Debug,Release}/ffi_native.node`. Each successful build
 stages its payload under `dist/platform/<node-platform>-<arch>/<configuration>/`

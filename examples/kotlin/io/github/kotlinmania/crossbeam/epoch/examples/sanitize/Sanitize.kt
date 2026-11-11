@@ -31,7 +31,7 @@ public fun worker(a: Atomic<AtomicUsize>, handle: LocalHandle): Int {
                 val p1 = a.load(Acquire, guard)
                 p1.deref().fetch_add(sum, Relaxed)
             }
-            sum = (sum + value.toLong())
+            sum = (sum + value.toInt())
         }
     }
     return sum

@@ -1,0 +1,25 @@
+--- native-kexe-emission:src/common/seqLock64Test/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLockInlineTests.kt
++++ src/common/seqLock64Test/kotlin/io/github/kotlinmania/crossbeam/utils/atomic/seqlock/SeqLockInlineTests.kt
+@@ -1,14 +1,16 @@
+ // port-lint: tests crossbeam-utils/src/atomic/seq_lock.rs
+ package io.github.kotlinmania.crossbeam.utils.atomic.seqlock
+ 
++private val LK: SeqLock = SeqLock.new()
++
+ @kotlin.test.Test
+ public fun test_abort() {
+-    var LK: SeqLock = SeqLock.new()
+-    val before = LK.optimistic_read().unwrap()
++    val before = checkNotNull(LK.optimistic_read())
+     run {
+-        val guard = LK.write()
+-        guard.abort()
++        LK.write().use { guard ->
++            guard.abort()
++        }
+     }
+-    val after = LK.optimistic_read().unwrap()
+-    check(before == after)
++    val after = checkNotNull(LK.optimistic_read())
++    check(before == after) { "aborted write does not update the stamp" }
+ }

@@ -1,0 +1,97 @@
+--- native-kexe-emission:src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/deferred/Deferred.kt
++++ src/common/commonMain/kotlin/io/github/kotlinmania/crossbeam/epoch/deferred/Deferred.kt
+@@ -2,10 +2,6 @@
+ @file:OptIn(ExperimentalUnsignedTypes::class)
+ 
+ package io.github.kotlinmania.crossbeam.epoch.deferred
+-
+-public fun interface DeferredCallCallback {
+-    public operator fun invoke(arg0: Long)
+-}
+ 
+ /**
+  * Number of words a piece of `Data` can hold.
+@@ -21,67 +17,33 @@
+ public typealias Data = ULongArray
+ 
+ /**
+- * A `FnOnce()` that is stored inline if small, or otherwise boxed on the heap.
++ * A deferred `FnOnce()` callback.
+  *
+- * This is a handy way of keeping an unsized `FnOnce()` within a sized structure.
++ * Kotlin closures carry their captured values directly; no Rust raw storage is exposed.
+  */
+-internal data class Deferred(
+-    public var call: DeferredCallCallback = DeferredCallCallback { _ -> },
+-    public var data: Data = ULongArray(DATA_WORDS.toInt()),
+-    public var _marker: Unit = Unit,
+-) {
+-    override fun equals(other: Any?): Boolean {
+-        if (this === other) return true
+-        if (other !is Deferred) return false
+-        if (this.call != other.call) return false
+-        if (!this.data.contentEquals(other.data)) return false
+-        if (this._marker != other._marker) return false
+-        return true
++internal class Deferred private constructor(private var callback: (() -> Unit)?) {
++    public fun fmt(f: StringBuilder) {
++        f.append("Deferred { .. }")
+     }
+ 
+-    override fun hashCode(): Int {
+-        var result = this.call.hashCode()
+-        result = 31 * result + this.data.contentHashCode()
+-        result = 31 * result + this._marker.hashCode()
+-        return result
+-    }
++    override fun toString(): String = "Deferred { .. }"
+ 
+-    public fun fmt(f: StringBuilder): Result<Unit> {
+-        return f.append("Deferred { .. }")
++    /** Calls the function once, releasing the captured values after invocation. */
++    internal fun call() {
++        val f = checkNotNull(callback) { "Deferred has already been called" }
++        callback = null
++        f()
+     }
+ 
+     public companion object {
+-        internal val NO_OP: Deferred = run {
+-            fun no_op_call(_raw: Long) {}
+-            Deferred(call = no_op_call, data = 0L, _marker = Unit)
+-        }
++        internal val NO_OP: Deferred get() = Deferred { }
+ 
+         /**
+          * Constructs a new `Deferred` from a `FnOnce()`.
++         *
++         * Kotlin stores the closure directly. Its runtime chooses storage placement;
++         * the Rust inline-versus-boxed optimization does not apply to Kotlin closures.
+          */
+-        internal fun new(f: () -> Unit): Deferred {
+-            val size = mem.size_of<() -> Unit>()
+-            val align = mem.align_of<() -> Unit>()
+-            return if (size <= mem.size_of<Data>() && align <= mem.align_of<Data>()) {
+-                fun call(raw: Long) {
+-                    val f1: () -> Unit = raw
+-                    f1()
+-                }
+-                var data = Deferred()
+-                ptr.write(0L, f)
+-                Deferred(call = call<() -> Unit>, data = data, _marker = Unit)
+-            } else {
+-                fun call(raw: Long) {
+-                    // It's safe to cast `raw` from `* UByte` to `* Holder<F>`, because `raw` is
+-                    // originally derived from `* Holder<F>`.
+-                    val b: () -> Unit = raw
+-                    b()
+-                }
+-                val b: () -> Unit = f
+-                var data1 = Deferred()
+-                ptr.write(0L, b)
+-                Deferred(call = call<() -> Unit>, data = data1, _marker = Unit)
+-            }
+-        }
++        internal fun new(f: () -> Unit): Deferred = Deferred(f)
+     }
+ }

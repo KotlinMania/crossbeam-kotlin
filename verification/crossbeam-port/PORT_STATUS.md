@@ -9,7 +9,7 @@ Work in progress. The manual Crossbeam algorithms/tests were removed. Current pr
 - Native output was written directly into real source paths: 32 normal artifacts and 7 inline-test artifacts containing 28 original Rust declarations. The 127 total emitted test declarations have direct Rust function/macro name-origin matches; that is not runtime or body-equivalence proof.
 - Raw mode preserves ULong pointer addresses and removes the former default-mode hashCode address substitutions. Real allocation/ownership APIs are still missing.
 - Newly rejected files and stale test artifacts were removed. Inactive Loom emits no source. No old manual implementation is retained for a rejected file.
-- Generated FFI companions, real OS/C/Rust bridge inputs and platform/loaders remain. All template targets/validators and native/JVM/N-API flags remain enabled. The three Cargo build.rs files are host tooling, not silently counted as translated runtime modules.
+- Generated FFI companions, real OS/C/Rust bridge inputs and platform/loaders remain. All project targets/validators and native/JVM/N-API flags remain enabled. The three Cargo build.rs files are host tooling, not silently counted as translated runtime modules.
 
 Commands, raw hashes, exact repair diffs and removals: regeneration/redo-adoption.json. Reproducible driver: regeneration/regenerate.py. Original test name/macro evidence: regeneration/test-origin-map.json.
 

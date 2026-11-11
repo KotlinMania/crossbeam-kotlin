@@ -1,9 +1,9 @@
 # Full local build and test: target/runner contract
 
-This is the template's 17-target matrix, derived from its actual target declarations,
+This is Crossbeam's 17-target matrix, derived from its actual target declarations,
 `nativeTargetNames`, `fullTargetBuildTaskNames`, `hostTests`, and checked-in workflows.
 It is a plan, not an execution report. Every runtime below is currently unverified
-for this template revision. Preserve legitimate platform-specific projects: an
+for this project revision. Preserve legitimate platform-specific projects: an
 Android-only library is not made portable by copying extra target declarations.
 
 ## Aggregate command and evidence
@@ -43,14 +43,14 @@ this revision's task graphs have not yet been validated by an allocated invocati
 | Linux x64 | `./gradlew linuxX64Binaries linuxX64TestBinaries` on Linux x64 | `./gradlew linuxX64Test` on Linux x64 | linux.yml runs x64 tests. |
 | Linux ARM64 | `./gradlew linuxArm64Binaries linuxArm64TestBinaries` on supported Linux ARM64 build runner | `./gradlew linuxArm64Test` on ARM64 Linux or a verified equivalent runtime | linux.yml **only cross-compiles ARM64 main**, no ARM64 test execution. |
 | Windows x64 | `./gradlew mingwX64Binaries mingwX64TestBinaries` on Windows x64 | `./gradlew mingwX64Test` on Windows x64 | windows.yml invokes tests; final artifact/execution proof unverified. |
-| Android Native ARM64 | `./gradlew androidNativeArm64Binaries androidNativeArm64TestBinaries` | **No template device execution harness exists.** Must execute the produced native test binary on owned ARM64 Android and preserve exit/test output. | android-native.yml **compiles main only**; no link/test-binary/device execution proof. |
-| Android Native x64 | `./gradlew androidNativeX64Binaries androidNativeX64TestBinaries` | **No template device execution harness exists.** Must execute native test binary on owned x64 Android emulator/device. | android-native.yml compiles main only. Android system-properties PR88 has a project-specific x64 harness, not a generic template runner. |
+| Android Native ARM64 | `./gradlew androidNativeArm64Binaries androidNativeArm64TestBinaries` | **No project device execution harness exists.** Must execute the produced native test binary on owned ARM64 Android and preserve exit/test output. | android-native.yml **compiles main only**; no link/test-binary/device execution proof. |
+| Android Native x64 | `./gradlew androidNativeX64Binaries androidNativeX64TestBinaries` | **No project device execution harness exists.** Must execute native test binary on owned x64 Android emulator/device. | android-native.yml compiles main only. Android system-properties PR88 has a project-specific x64 harness, not a generic project runner. |
 | macOS ARM64 | `./gradlew macosArm64Binaries macosArm64TestBinaries` on Apple Silicon macOS/Xcode | `./gradlew macosArm64Test` on Apple Silicon macOS | macos.yml invokes tests; correct host architecture/results require proof. |
-| iOS ARM64 device | `./gradlew iosArm64Binaries iosArm64TestBinaries` on macOS/Xcode | **No template device execution harness exists.** Needs an owned, signed/provisioned iOS device harness; simulator success does not execute this target. | ios.yml compiles device main and assembles XCFramework; device runtime absent. |
+| iOS ARM64 device | `./gradlew iosArm64Binaries iosArm64TestBinaries` on macOS/Xcode | **No project device execution harness exists.** Needs an owned, signed/provisioned iOS device harness; simulator success does not execute this target. | ios.yml compiles device main and assembles XCFramework; device runtime absent. |
 | iOS simulator ARM64 | `./gradlew iosSimulatorArm64Binaries iosSimulatorArm64TestBinaries` | `./gradlew iosSimulatorArm64Test` on Apple Silicon macOS with installed/bootable iOS simulator | ios.yml invokes simulator tests; execution/results unverified. |
-| tvOS ARM64 device | `./gradlew tvosArm64Binaries tvosArm64TestBinaries` on macOS/Xcode | **No template device execution harness exists.** Owned tvOS device runner required. | tvos.yml compiles main; device runtime absent. |
+| tvOS ARM64 device | `./gradlew tvosArm64Binaries tvosArm64TestBinaries` on macOS/Xcode | **No project device execution harness exists.** Owned tvOS device runner required. | tvos.yml compiles main; device runtime absent. |
 | tvOS simulator ARM64 | `./gradlew tvosSimulatorArm64Binaries tvosSimulatorArm64TestBinaries` | `./gradlew tvosSimulatorArm64Test` on Apple Silicon macOS with tvOS simulator runtime | tvos.yml invokes simulator tests; execution/results unverified. |
-| watchOS ARM64 device | `./gradlew watchosDeviceArm64Binaries watchosDeviceArm64TestBinaries` on macOS/Xcode | **No template device execution harness exists.** Owned watchOS device runner required. | watchos.yml compiles main; device runtime absent. |
+| watchOS ARM64 device | `./gradlew watchosDeviceArm64Binaries watchosDeviceArm64TestBinaries` on macOS/Xcode | **No project device execution harness exists.** Owned watchOS device runner required. | watchos.yml compiles main; device runtime absent. |
 | watchOS simulator ARM64 | `./gradlew watchosSimulatorArm64Binaries watchosSimulatorArm64TestBinaries` | `./gradlew watchosSimulatorArm64Test` with installed compatible watchOS simulator runtime | watchos.yml invokes simulator tests; execution/results unverified. |
 
 The unavailable device commands are deliberately not fabricated. Until a real
@@ -63,7 +63,7 @@ tests in addition to the Kotlin target tests.
 ## Strict Swift export: project, generated dependencies, and tests
 
 Swift export is an additional language boundary, not an eighteenth KMP target.
-The template source correction now:
+This project source correction now:
 
 - Sets Kotlin warnings-as-errors for all compilation tasks, including generated
   Swift bridge/runtime Kotlin, and rejects a task-time relaxation.
@@ -110,8 +110,8 @@ and explicit expected test names/counts before a real-library Swift pass.
 
 - The CI orchestrator omits its existing JVM reusable workflow.
 - Device tests, both Android Native runtimes, Linux ARM64 runtime, and Apple device
-  runtimes are absent from the template CI execution surface.
-- The template still has an inherited Android device-test annotations exclusion.
+  runtimes are absent from the project CI execution surface.
+- This project still has an inherited Android device-test annotations exclusion.
   This can mask a producer packaging defect and requires separate source review;
   it is not accepted as duplicate-free evidence.
 - This strict-Swift correction and the repaired Android consumer fixture are

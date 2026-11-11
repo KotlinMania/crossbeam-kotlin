@@ -1,5 +1,5 @@
 # Detekt configuration for KotlinMania ports.
-# Relaxed from template defaults because this is a line-by-line port of
+# Configured from shared defaults because this is a line-by-line port of
 # upstream source code; many structural/style rules that make sense for
 # idiomatic Kotlin would create false positives here.
 

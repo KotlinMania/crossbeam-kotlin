@@ -1,0 +1,63 @@
+--- native-kexe-emission:src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/deferred/DeferredInlineTests.kt
++++ src/common/commonTest/kotlin/io/github/kotlinmania/crossbeam/epoch/deferred/DeferredInlineTests.kt
+@@ -3,40 +3,40 @@
+ 
+ @kotlin.test.Test
+ public fun on_stack() {
+-    val fired = Cell.new(false)
++    var fired = false
+     val a = List(1) { 0uL }
+     val d = Deferred.new({
+-        identity(a)
+-        fired.set(true)
++        a.also { }
++        fired = true
+     })
+-    check(!fired.get())
++    check(!fired)
+     d.call()
+-    check(fired.get())
++    check(fired)
+ }
+ 
+ @kotlin.test.Test
+ public fun on_heap() {
+-    val fired = Cell.new(false)
++    var fired = false
+     val a = List(10) { 0uL }
+     val d = Deferred.new({
+-        identity(a)
+-        fired.set(true)
++        a.also { }
++        fired = true
+     })
+-    check(!fired.get())
++    check(!fired)
+     d.call()
+-    check(fired.get())
++    check(fired)
+ }
+ 
+ @kotlin.test.Test
+ public fun string() {
+-    val a = "hello".to_string()
++    val a = "hello"
+     val d = Deferred.new({ check(a == "hello") })
+     d.call()
+ }
+ 
+ @kotlin.test.Test
+ public fun boxed_slice_i32() {
+-    val a: List<Int> = mutableListOf(2, 3, 5, 7).into_boxed_slice()
++    val a: List<Int> = listOf(2, 3, 5, 7)
+     val d = Deferred.new({ check(a == listOf(2, 3, 5, 7)) })
+     d.call()
+ }
+@@ -44,6 +44,6 @@
+ @kotlin.test.Test
+ public fun long_slice_usize() {
+     val a: IntArray = intArrayOf(2, 3, 5, 7, 11)
+-    val d = Deferred.new({ check(a == listOf(2, 3, 5, 7, 11)) })
++    val d = Deferred.new({ check(a.contentEquals(intArrayOf(2, 3, 5, 7, 11))) })
+     d.call()
+ }

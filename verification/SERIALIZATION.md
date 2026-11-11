@@ -3,7 +3,7 @@
 The canonical template contains no Kotlinx serialization compiler plugin alias,
 library aliases, or version pin. Projects use `serde-kotlin` and
 `serde-json-kotlin` when their selected features require serialization or JSON.
-The template adds no automatic Serde dependency. Datetime remains an explicit
+This project adds no automatic Serde dependency. Datetime remains an explicit
 opt-in: the currently pinned published kotlinx-datetime 0.8.0 declares Kotlinx
 serialization core transitively. Its catalog alias/version are retained, while it
 is excluded from the default bundle so that indirect serialization is not injected.
