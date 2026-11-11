@@ -138,6 +138,17 @@ def narrow_repairs(path, source, text):
             subprocess.run(['patch', '-s', '-f', '-o', str(after), str(before), str(RECEIPTS / ('replay-' + replay_name + '.patch'))], check=True)
             result = after.read_text()
         operations.append('Replay tested Kotlin atomics/closure and original Rust test repairs; physical closure placement is runtime-selected.')
+    # Kotlin has no automatic Rust Deref/Arc coercions. Replay the exact reviewed
+    # member-access and standard collection repairs after earlier repair passes.
+    dereference_patch = RECEIPTS / ('reviewed-dereference-' + path.stem + '.patch')
+    if dereference_patch.exists() and '/src/' in source and not path.name.endswith('InlineTests.kt'):
+        with tempfile.TemporaryDirectory(prefix='crossbeam-dereference-', dir=ROOT / 'build') as folder:
+            before = Path(folder) / 'generated.kt'
+            after = Path(folder) / 'repaired.kt'
+            before.write_text(result)
+            subprocess.run(['patch', '-s', '-f', '-o', str(after), str(before), str(dereference_patch)], check=True)
+            result = after.read_text()
+        operations.append('Explicit CachePadded dereference, Kotlin reference sharing and standard collection APIs; no layout or synchronization substitution.')
     if result != text:
         path.write_text(result)
         diff = RECEIPTS / ('current-repair-' + path.stem + '-' + hashlib.sha256(str(path).encode()).hexdigest()[:10] + '.patch')

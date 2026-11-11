@@ -128,14 +128,14 @@ public class Inner<T>(
     /**
      * The underlying buffer.
      */
-    public var buffer: CachePadded<Atomic<Buffer<T>>> = CachePadded<Atomic<Buffer<T>>>(),
+    public var buffer: CachePadded<Atomic<Buffer<T>>>,
 ) {
     public fun drop() {
         // Load the back index, front index, and buffer.
         val b = this.back.get_mut()
         val f = this.front.get_mut()
         run {
-            val buffer = this.buffer.load(Ordering.Relaxed, io.github.kotlinmania.crossbeam.epoch.guard.unprotected())
+            val buffer = this.buffer.value.load(Ordering.Relaxed, io.github.kotlinmania.crossbeam.epoch.guard.unprotected())
             // Go through the buffer from front to back and drop all tasks in the queue.
             var i = f
             while (i != b) {
@@ -208,7 +208,7 @@ public class Worker<T>(
     /**
      * A reference to the inner representation of the queue.
      */
-    public var inner: CachePadded<Inner<T>> = CachePadded<Inner<T>>(),
+    public var inner: CachePadded<Inner<T>>,
     /**
      * A copy of `inner.buffer` for quick access.
      */
@@ -237,7 +237,7 @@ public class Worker<T>(
      * ```
      */
     public fun stealer(): Stealer<T> {
-        return Stealer(inner = this.inner.clone(), flavor = this.flavor)
+        return Stealer(inner = this.inner, flavor = this.flavor)
     }
 
     /**
@@ -245,8 +245,8 @@ public class Worker<T>(
      */
     public fun resize(new_cap: Int) {
         // Load the back index, front index, and buffer.
-        val b = this.inner.back.load(Ordering.Relaxed)
-        val f = this.inner.front.load(Ordering.Relaxed)
+        val b = this.inner.value.back.load(Ordering.Relaxed)
+        val f = this.inner.value.front.load(Ordering.Relaxed)
         val buffer = this.buffer.get()
         // Allocate a new buffer and copy data from the old buffer to the new one.
         val new = Buffer.alloc(new_cap)
@@ -258,7 +258,7 @@ public class Worker<T>(
         val guard = io.github.kotlinmania.crossbeam.epoch.default.pin()
         // Replace the old buffer with the new one.
         this.buffer.replace(new)
-        val old = this.inner.buffer.swap(Owned.new(new).into_shared(guard), Ordering.Release, guard)
+        val old = this.inner.value.buffer.value.swap(Owned.new(new).into_shared(guard), Ordering.Release, guard)
         // Destroy the old buffer later.
         guard.defer_unchecked({ old.into_owned().into_box().dealloc() })
         // If the buffer is very large, then flush the thread-local garbage in order to deallocate
@@ -275,8 +275,8 @@ public class Worker<T>(
     public fun reserve(reserve_cap: Int) {
         if (reserve_cap > 0) {
             // Compute the current length.
-            val b = this.inner.back.load(Ordering.Relaxed)
-            val f = this.inner.front.load(Ordering.SeqCst)
+            val b = this.inner.value.back.load(Ordering.Relaxed)
+            val f = this.inner.value.front.load(Ordering.SeqCst)
             val len = (b - f.toLong()).toInt()
             // The current capacity.
             val cap = this.buffer.get().cap
@@ -305,8 +305,8 @@ public class Worker<T>(
      * ```
      */
     public fun is_empty(): Boolean {
-        val b = this.inner.back.load(Ordering.Relaxed)
-        val f = this.inner.front.load(Ordering.SeqCst)
+        val b = this.inner.value.back.load(Ordering.Relaxed)
+        val f = this.inner.value.front.load(Ordering.SeqCst)
         return (b - f.toLong()) <= 0
     }
 
@@ -325,8 +325,8 @@ public class Worker<T>(
      * ```
      */
     public fun len(): Int {
-        val b = this.inner.back.load(Ordering.Relaxed)
-        val f = this.inner.front.load(Ordering.SeqCst)
+        val b = this.inner.value.back.load(Ordering.Relaxed)
+        val f = this.inner.value.front.load(Ordering.SeqCst)
         return (b - f.toLong()).max(0).toInt()
     }
 
@@ -345,8 +345,8 @@ public class Worker<T>(
      */
     public fun push(task: T) {
         // Load the back index, front index, and buffer.
-        val b = this.inner.back.load(Ordering.Relaxed)
-        val f = this.inner.front.load(Ordering.Acquire)
+        val b = this.inner.value.back.load(Ordering.Relaxed)
+        val f = this.inner.value.front.load(Ordering.Acquire)
         var buffer = this.buffer.get()
         // Calculate the length of the queue.
         val len = (b - f.toLong())
@@ -370,7 +370,7 @@ public class Worker<T>(
             Ordering.Relaxed
         }
         // Increment the back index.
-        this.inner.back.store((b + 1.toLong()), store_order)
+        this.inner.value.back.store((b + 1.toLong()), store_order)
     }
 
     /**
@@ -391,8 +391,8 @@ public class Worker<T>(
      */
     public fun pop(): T? {
         // Load the back and front index.
-        val b = this.inner.back.load(Ordering.Relaxed)
-        val f = this.inner.front.load(Ordering.Relaxed)
+        val b = this.inner.value.back.load(Ordering.Relaxed)
+        val f = this.inner.value.front.load(Ordering.Relaxed)
         // Calculate the length of the queue.
         val len = (b - f.toLong())
         // Is the queue empty?
@@ -403,10 +403,10 @@ public class Worker<T>(
             // Pop from the front of the queue.
             Flavor.Fifo -> {
                 // Try incrementing the front index to pop the task.
-                val f1 = this.inner.front.fetch_add(1, Ordering.SeqCst)
+                val f1 = this.inner.value.front.fetch_add(1, Ordering.SeqCst)
                 val new_f = (f1 + 1.toLong())
                 if ((b - new_f.toLong()) < 0) {
-                    this.inner.front.store(f1, Ordering.Relaxed)
+                    this.inner.value.front.store(f1, Ordering.Relaxed)
                     return null
                 }
                 run {
@@ -424,15 +424,15 @@ public class Worker<T>(
             Flavor.Lifo -> {
                 // Decrement the back index.
                 val b1 = (b - 1.toLong())
-                this.inner.back.store(b1, Ordering.Relaxed)
+                this.inner.value.back.store(b1, Ordering.Relaxed)
                 atomic.fence(Ordering.SeqCst)
                 // Load the front index.
-                val f2 = this.inner.front.load(Ordering.Relaxed)
+                val f2 = this.inner.value.front.load(Ordering.Relaxed)
                 // Compute the length after the back index was decremented.
                 val len1 = (b1 - f2.toLong())
                 if (len1 < 0) {
                     // The queue is empty. Restore the back index to the original task.
-                    this.inner.back.store((b1 + 1.toLong()), Ordering.Relaxed)
+                    this.inner.value.back.store((b1 + 1.toLong()), Ordering.Relaxed)
                     null
                 } else {
                     // Read the task to be popped.
@@ -441,12 +441,12 @@ public class Worker<T>(
                     // Are we popping the last task from the queue?
                     if (len1 == 0) {
                         // Try incrementing the front index.
-                        if (this.inner.front.compare_exchange(f2, (f2 + 1.toLong()), Ordering.SeqCst, Ordering.Relaxed).is_err()) {
+                        if (this.inner.value.front.compare_exchange(f2, (f2 + 1.toLong()), Ordering.SeqCst, Ordering.Relaxed).is_err()) {
                             // Failed. We didn't pop anything. Reset to `None`.
                             task1.also { task1 = null }
                         }
                         // Restore the back index to the original task.
-                        this.inner.back.store((b1 + 1.toLong()), Ordering.Relaxed)
+                        this.inner.value.back.store((b1 + 1.toLong()), Ordering.Relaxed)
                     } else {
                         // Shrink the buffer if `len` is less than one fourth of the capacity.
                         if (buffer1.cap > MIN_CAP && len1 < buffer1.cap.toLong() / 4L) {
@@ -532,7 +532,7 @@ public class Stealer<T>(
     /**
      * A reference to the inner representation of the queue.
      */
-    public var inner: CachePadded<Inner<T>> = CachePadded<Inner<T>>(),
+    public var inner: CachePadded<Inner<T>>,
     /**
      * The flavor of the queue.
      */
@@ -552,9 +552,9 @@ public class Stealer<T>(
      * ```
      */
     public fun is_empty(): Boolean {
-        val f = this.inner.front.load(Ordering.Acquire)
+        val f = this.inner.value.front.load(Ordering.Acquire)
         atomic.fence(Ordering.SeqCst)
-        val b = this.inner.back.load(Ordering.Acquire)
+        val b = this.inner.value.back.load(Ordering.Acquire)
         return (b - f.toLong()) <= 0
     }
 
@@ -574,9 +574,9 @@ public class Stealer<T>(
      * ```
      */
     public fun len(): Int {
-        val f = this.inner.front.load(Ordering.Acquire)
+        val f = this.inner.value.front.load(Ordering.Acquire)
         atomic.fence(Ordering.SeqCst)
-        val b = this.inner.back.load(Ordering.Acquire)
+        val b = this.inner.value.back.load(Ordering.Acquire)
         return (b - f.toLong()).max(0).toInt()
     }
 
@@ -599,7 +599,7 @@ public class Stealer<T>(
      */
     public fun steal(): Steal<T> {
         // Load the front index.
-        val f = this.inner.front.load(Ordering.Acquire)
+        val f = this.inner.value.front.load(Ordering.Acquire)
         // A SeqCst fence is needed here.
         //
         // If the current thread is already pinned (reentrantly), we must manually issue the
@@ -610,17 +610,17 @@ public class Stealer<T>(
         }
         val guard = io.github.kotlinmania.crossbeam.epoch.default.pin()
         // Load the back index.
-        val b = this.inner.back.load(Ordering.Acquire)
+        val b = this.inner.value.back.load(Ordering.Acquire)
         // Is the queue empty?
         if ((b - f.toLong()) <= 0) {
             return Steal.Empty
         }
         // Load the buffer and read the task at the front.
-        val buffer = this.inner.buffer.load(Ordering.Acquire, guard)
+        val buffer = this.inner.value.buffer.value.load(Ordering.Acquire, guard)
         val task = buffer.deref().read(f)
         // Try incrementing the front index to steal the task.
         // If the buffer has been swapped or the increment fails, we retry.
-        if (this.inner.buffer.load(Ordering.Acquire, guard) != buffer || this.inner.front.compare_exchange(f, (f + 1.toLong()), Ordering.SeqCst, Ordering.Relaxed).is_err()) {
+        if (this.inner.value.buffer.value.load(Ordering.Acquire, guard) != buffer || this.inner.value.front.compare_exchange(f, (f + 1.toLong()), Ordering.SeqCst, Ordering.Relaxed).is_err()) {
             // We didn't steal this task, forget it.
             return Steal.Retry
         }
@@ -698,7 +698,7 @@ public class Stealer<T>(
             }
         }
         // Load the front index.
-        var f = this.inner.front.load(Ordering.Acquire)
+        var f = this.inner.value.front.load(Ordering.Acquire)
         // A SeqCst fence is needed here.
         //
         // If the current thread is already pinned (reentrantly), we must manually issue the
@@ -709,7 +709,7 @@ public class Stealer<T>(
         }
         val guard = io.github.kotlinmania.crossbeam.epoch.default.pin()
         // Load the back index.
-        val b = this.inner.back.load(Ordering.Acquire)
+        val b = this.inner.value.back.load(Ordering.Acquire)
         // Is the queue empty?
         val len = (b - f.toLong())
         if (len <= 0) {
@@ -721,9 +721,9 @@ public class Stealer<T>(
         var batch_size1 = batch_size.toLong()
         // Get the destination buffer and back index.
         val dest_buffer = dest.buffer.get()
-        var dest_b = dest.inner.back.load(Ordering.Relaxed)
+        var dest_b = dest.inner.value.back.load(Ordering.Relaxed)
         // Load the buffer.
-        val buffer = this.inner.buffer.load(Ordering.Acquire, guard)
+        val buffer = this.inner.value.buffer.value.load(Ordering.Acquire, guard)
         when (this.flavor) {
             // Steal a batch of tasks from the front at once.
             Flavor.Fifo -> {
@@ -748,7 +748,7 @@ public class Stealer<T>(
                 }
                 // Try incrementing the front index to steal the batch.
                 // If the buffer has been swapped or the increment fails, we retry.
-                if (this.inner.buffer.load(Ordering.Acquire, guard) != buffer || this.inner.front.compare_exchange(f, (f + batch_size1), Ordering.SeqCst, Ordering.Relaxed).is_err()) {
+                if (this.inner.value.buffer.value.load(Ordering.Acquire, guard) != buffer || this.inner.value.front.compare_exchange(f, (f + batch_size1), Ordering.SeqCst, Ordering.Relaxed).is_err()) {
                     return Steal.Retry
                 }
                 dest_b = (dest_b + batch_size1)
@@ -766,7 +766,7 @@ public class Stealer<T>(
                         // synchronize with other threads.
                         atomic.fence(Ordering.SeqCst)
                         // Load the back index.
-                        val b1 = this.inner.back.load(Ordering.Acquire)
+                        val b1 = this.inner.value.back.load(Ordering.Acquire)
                         // Is the queue empty?
                         if ((b1 - f.toLong()) <= 0) {
                             batch_size1 = i2
@@ -777,7 +777,7 @@ public class Stealer<T>(
                     val task2 = buffer.deref().read(f)
                     // Try incrementing the front index to steal the task.
                     // If the buffer has been swapped or the increment fails, we retry.
-                    if (this.inner.buffer.load(Ordering.Acquire, guard) != buffer || this.inner.front.compare_exchange(f, (f + 1.toLong()), Ordering.SeqCst, Ordering.Relaxed).is_err()) {
+                    if (this.inner.value.buffer.value.load(Ordering.Acquire, guard) != buffer || this.inner.value.front.compare_exchange(f, (f + 1.toLong()), Ordering.SeqCst, Ordering.Relaxed).is_err()) {
                         // We didn't steal this task, forget it and break from the loop.
                         batch_size1 = i2
                         break
@@ -817,7 +817,7 @@ public class Stealer<T>(
             Ordering.Relaxed
         }
         // Update the back index in the destination queue.
-        dest.inner.back.store(dest_b, store_order)
+        dest.inner.value.back.store(dest_b, store_order)
         // Return with success.
         return Steal.Success(Unit)
     }
@@ -897,7 +897,7 @@ public class Stealer<T>(
             }
         }
         // Load the front index.
-        var f = this.inner.front.load(Ordering.Acquire)
+        var f = this.inner.value.front.load(Ordering.Acquire)
         // A SeqCst fence is needed here.
         //
         // If the current thread is already pinned (reentrantly), we must manually issue the
@@ -908,7 +908,7 @@ public class Stealer<T>(
         }
         val guard = io.github.kotlinmania.crossbeam.epoch.default.pin()
         // Load the back index.
-        val b = this.inner.back.load(Ordering.Acquire)
+        val b = this.inner.value.back.load(Ordering.Acquire)
         // Is the queue empty?
         val len = (b - f.toLong())
         if (len <= 0) {
@@ -920,9 +920,9 @@ public class Stealer<T>(
         var batch_size1 = batch_size.toLong()
         // Get the destination buffer and back index.
         val dest_buffer = dest.buffer.get()
-        var dest_b = dest.inner.back.load(Ordering.Relaxed)
+        var dest_b = dest.inner.value.back.load(Ordering.Relaxed)
         // Load the buffer
-        val buffer = this.inner.buffer.load(Ordering.Acquire, guard)
+        val buffer = this.inner.value.buffer.value.load(Ordering.Acquire, guard)
         // Read the task at the front.
         var task1 = buffer.deref().read(f)
         when (this.flavor) {
@@ -949,7 +949,7 @@ public class Stealer<T>(
                 }
                 // Try incrementing the front index to steal the task.
                 // If the buffer has been swapped or the increment fails, we retry.
-                if (this.inner.buffer.load(Ordering.Acquire, guard) != buffer || this.inner.front.compare_exchange(f, (f + (batch_size1 + 1L)), Ordering.SeqCst, Ordering.Relaxed).is_err()) {
+                if (this.inner.value.buffer.value.load(Ordering.Acquire, guard) != buffer || this.inner.value.front.compare_exchange(f, (f + (batch_size1 + 1L)), Ordering.SeqCst, Ordering.Relaxed).is_err()) {
                     // We didn't steal this task, forget it.
                     return Steal.Retry
                 }
@@ -958,7 +958,7 @@ public class Stealer<T>(
             // Steal a batch of tasks from the front one by one.
             Flavor.Lifo -> {
                 // Try incrementing the front index to steal the task.
-                if (this.inner.front.compare_exchange(f, (f + 1.toLong()), Ordering.SeqCst, Ordering.Relaxed).is_err()) {
+                if (this.inner.value.front.compare_exchange(f, (f + 1.toLong()), Ordering.SeqCst, Ordering.Relaxed).is_err()) {
                     // We didn't steal this task, forget it.
                     return Steal.Retry
                 }
@@ -975,7 +975,7 @@ public class Stealer<T>(
                     // synchronize with other threads.
                     atomic.fence(Ordering.SeqCst)
                     // Load the back index.
-                    val b1 = this.inner.back.load(Ordering.Acquire)
+                    val b1 = this.inner.value.back.load(Ordering.Acquire)
                     // Is the queue empty?
                     if ((b1 - f.toLong()) <= 0) {
                         batch_size1 = i2
@@ -985,7 +985,7 @@ public class Stealer<T>(
                     val tmp = buffer.deref().read(f)
                     // Try incrementing the front index to steal the task.
                     // If the buffer has been swapped or the increment fails, we retry.
-                    if (this.inner.buffer.load(Ordering.Acquire, guard) != buffer || this.inner.front.compare_exchange(f, (f + 1.toLong()), Ordering.SeqCst, Ordering.Relaxed).is_err()) {
+                    if (this.inner.value.buffer.value.load(Ordering.Acquire, guard) != buffer || this.inner.value.front.compare_exchange(f, (f + 1.toLong()), Ordering.SeqCst, Ordering.Relaxed).is_err()) {
                         // We didn't steal this task, forget it and break from the loop.
                         batch_size1 = i2
                         break
@@ -1021,13 +1021,13 @@ public class Stealer<T>(
             Ordering.Relaxed
         }
         // Update the back index in the destination queue.
-        dest.inner.back.store(dest_b, store_order)
+        dest.inner.value.back.store(dest_b, store_order)
         // Return with success.
         return Steal.Success(task1.assume_init())
     }
 
     public fun clone(): Stealer<T> {
-        return Stealer(inner = this.inner.clone(), flavor = this.flavor)
+        return Stealer(inner = this.inner, flavor = this.flavor)
     }
 
     public fun fmt(f: StringBuilder) {
@@ -1195,11 +1195,11 @@ public class Injector<T>(
     /**
      * The head of the queue.
      */
-    public var head: CachePadded<Position<T>> = CachePadded<Position<T>>(),
+    public var head: CachePadded<Position<T>>,
     /**
      * The tail of the queue.
      */
-    public var tail: CachePadded<Position<T>> = CachePadded<Position<T>>(),
+    public var tail: CachePadded<Position<T>>,
     /**
      * Indicates that dropping a `Injector<T>` may drop values of type `T`.
      */
@@ -1220,8 +1220,8 @@ public class Injector<T>(
      */
     public fun push(task: T) {
         val backoff = Backoff.new()
-        var tail = this.tail.index.load(Ordering.Acquire)
-        var block = this.tail.block.load(Ordering.Acquire)
+        var tail = this.tail.value.index.load(Ordering.Acquire)
+        var block = this.tail.value.block.load(Ordering.Acquire)
         var next_block = null
         while (true) {
             // Calculate the offset of the index into the block.
@@ -1229,8 +1229,8 @@ public class Injector<T>(
             // If we reached the end of the block, wait until the next one is installed.
             if (offset == BLOCK_CAP) {
                 backoff.snooze()
-                tail = this.tail.index.load(Ordering.Acquire)
-                block = this.tail.block.load(Ordering.Acquire)
+                tail = this.tail.value.index.load(Ordering.Acquire)
+                block = this.tail.value.block.load(Ordering.Acquire)
                 continue
             }
             // If we're going to have to install the next block, allocate it in advance in order to
@@ -1241,15 +1241,15 @@ public class Injector<T>(
             val new_tail = tail + (1 shl SHIFT)
             // Try advancing the tail forward.
             run {
-                val matchVal = this.tail.index.compare_exchange_weak(tail, new_tail, Ordering.SeqCst, Ordering.Acquire)
+                val matchVal = this.tail.value.index.compare_exchange_weak(tail, new_tail, Ordering.SeqCst, Ordering.Acquire)
                 if (matchVal.isSuccess) {
                     run {
                         // If we've reached the end of the block, install the next one.
                         if (offset + 1 == BLOCK_CAP) {
                             val next_block1 = Box.into_raw(next_block!!)
                             val next_index = (new_tail + (1 shl SHIFT).toLong())
-                            this.tail.block.store(next_block1, Ordering.Release)
-                            this.tail.index.store(next_index, Ordering.Release)
+                            this.tail.value.block.store(next_block1, Ordering.Release)
+                            this.tail.value.index.store(next_index, Ordering.Release)
                             block.next.store(next_block1, Ordering.Release)
                         }
                         // Write the task into the slot.
@@ -1261,7 +1261,7 @@ public class Injector<T>(
                 } else {
                     val t = matchVal.exceptionOrNull()!!
                     tail = t
-                    block = this.tail.block.load(Ordering.Acquire)
+                    block = this.tail.value.block.load(Ordering.Acquire)
                     backoff.spin()
                 }
             }
@@ -1291,8 +1291,8 @@ public class Injector<T>(
         var offset: Any?
         val backoff = Backoff.new()
         while (true) {
-            head = this.head.index.load(Ordering.Acquire)
-            block = this.head.block.load(Ordering.Acquire)
+            head = this.head.value.index.load(Ordering.Acquire)
+            block = this.head.value.block.load(Ordering.Acquire)
             // Calculate the offset of the index into the block.
             offset = ((head shr SHIFT) % LAP).toInt()
             // If we reached the end of the block, wait until the next one is installed.
@@ -1305,7 +1305,7 @@ public class Injector<T>(
         var new_head = head + (1 shl SHIFT)
         if (new_head and HAS_NEXT == 0uL) {
             atomic.fence(Ordering.SeqCst)
-            val tail = this.tail.index.load(Ordering.Relaxed)
+            val tail = this.tail.value.index.load(Ordering.Relaxed)
             // If the tail equals the head, that means the queue is empty.
             if (head shr SHIFT == tail shr SHIFT) {
                 return Steal.Empty
@@ -1316,7 +1316,7 @@ public class Injector<T>(
             }
         }
         // Try moving the head index forward.
-        if (this.head.index.compare_exchange_weak(head, new_head, Ordering.SeqCst, Ordering.Acquire).is_err()) {
+        if (this.head.value.index.compare_exchange_weak(head, new_head, Ordering.SeqCst, Ordering.Acquire).is_err()) {
             return Steal.Retry
         }
         return run {
@@ -1327,8 +1327,8 @@ public class Injector<T>(
                 if (!(next.next.load(Ordering.Relaxed) == 0L)) {
                     next_index = next_index or HAS_NEXT
                 }
-                this.head.block.store(next, Ordering.Release)
-                this.head.index.store(next_index, Ordering.Release)
+                this.head.value.block.store(next, Ordering.Release)
+                this.head.value.index.store(next_index, Ordering.Release)
             }
             // Read the task.
             val slot = block.slots.get_unchecked(offset)
@@ -1410,8 +1410,8 @@ public class Injector<T>(
         var offset: Any?
         val backoff = Backoff.new()
         while (true) {
-            head = this.head.index.load(Ordering.Acquire)
-            block = this.head.block.load(Ordering.Acquire)
+            head = this.head.value.index.load(Ordering.Acquire)
+            block = this.head.value.block.load(Ordering.Acquire)
             // Calculate the offset of the index into the block.
             offset = ((head shr SHIFT) % LAP).toInt()
             // If we reached the end of the block, wait until the next one is installed.
@@ -1425,7 +1425,7 @@ public class Injector<T>(
         val advance: Any?
         if (new_head and HAS_NEXT == 0uL) {
             atomic.fence(Ordering.SeqCst)
-            val tail = this.tail.index.load(Ordering.Relaxed)
+            val tail = this.tail.value.index.load(Ordering.Relaxed)
             // If the tail equals the head, that means the queue is empty.
             if (head shr SHIFT == tail shr SHIFT) {
                 return Steal.Empty
@@ -1448,7 +1448,7 @@ public class Injector<T>(
         new_head += (advance.toULong()) shl SHIFT
         val new_offset = offset + advance
         // Try moving the head index forward.
-        if (this.head.index.compare_exchange_weak(head, new_head, Ordering.SeqCst, Ordering.Acquire).is_err()) {
+        if (this.head.value.index.compare_exchange_weak(head, new_head, Ordering.SeqCst, Ordering.Acquire).is_err()) {
             return Steal.Retry
         }
         // Reserve capacity for the stolen batch.
@@ -1456,7 +1456,7 @@ public class Injector<T>(
         dest.reserve(batch_size)
         // Get the destination buffer and back index.
         val dest_buffer = dest.buffer.get()
-        val dest_b = dest.inner.back.load(Ordering.Relaxed)
+        val dest_b = dest.inner.value.back.load(Ordering.Relaxed)
         return run {
             // If we've reached the end of the block, move to the next one.
             if (new_offset == BLOCK_CAP) {
@@ -1465,8 +1465,8 @@ public class Injector<T>(
                 if (!(next.next.load(Ordering.Relaxed) == 0L)) {
                     next_index = next_index or HAS_NEXT
                 }
-                this.head.block.store(next, Ordering.Release)
-                this.head.index.store(next_index, Ordering.Release)
+                this.head.value.block.store(next, Ordering.Release)
+                this.head.value.index.store(next_index, Ordering.Release)
             }
             // Copy values from the injector into the destination queue.
             when (dest.flavor) {
@@ -1499,7 +1499,7 @@ public class Injector<T>(
                 Ordering.Relaxed
             }
             // Update the back index in the destination queue.
-            dest.inner.back.store((dest_b + (batch_size.toLong())), store_order)
+            dest.inner.value.back.store((dest_b + (batch_size.toLong())), store_order)
             // Destroy the block if we've reached the end, or if another thread wanted to destroy
             // but couldn't because we were busy reading from the slot.
             if (new_offset == BLOCK_CAP) {
@@ -1587,8 +1587,8 @@ public class Injector<T>(
         var offset: Any?
         val backoff = Backoff.new()
         while (true) {
-            head = this.head.index.load(Ordering.Acquire)
-            block = this.head.block.load(Ordering.Acquire)
+            head = this.head.value.index.load(Ordering.Acquire)
+            block = this.head.value.block.load(Ordering.Acquire)
             // Calculate the offset of the index into the block.
             offset = ((head shr SHIFT) % LAP).toInt()
             // If we reached the end of the block, wait until the next one is installed.
@@ -1602,7 +1602,7 @@ public class Injector<T>(
         val advance: Any?
         if (new_head and HAS_NEXT == 0uL) {
             atomic.fence(Ordering.SeqCst)
-            val tail = this.tail.index.load(Ordering.Relaxed)
+            val tail = this.tail.value.index.load(Ordering.Relaxed)
             // If the tail equals the head, that means the queue is empty.
             if (head shr SHIFT == tail shr SHIFT) {
                 return Steal.Empty
@@ -1624,7 +1624,7 @@ public class Injector<T>(
         new_head += (advance.toULong()) shl SHIFT
         val new_offset = offset + advance
         // Try moving the head index forward.
-        if (this.head.index.compare_exchange_weak(head, new_head, Ordering.SeqCst, Ordering.Acquire).is_err()) {
+        if (this.head.value.index.compare_exchange_weak(head, new_head, Ordering.SeqCst, Ordering.Acquire).is_err()) {
             return Steal.Retry
         }
         // Reserve capacity for the stolen batch.
@@ -1632,7 +1632,7 @@ public class Injector<T>(
         dest.reserve(batch_size)
         // Get the destination buffer and back index.
         val dest_buffer = dest.buffer.get()
-        val dest_b = dest.inner.back.load(Ordering.Relaxed)
+        val dest_b = dest.inner.value.back.load(Ordering.Relaxed)
         return run {
             // If we've reached the end of the block, move to the next one.
             if (new_offset == BLOCK_CAP) {
@@ -1641,8 +1641,8 @@ public class Injector<T>(
                 if (!(next.next.load(Ordering.Relaxed) == 0L)) {
                     next_index = next_index or HAS_NEXT
                 }
-                this.head.block.store(next, Ordering.Release)
-                this.head.index.store(next_index, Ordering.Release)
+                this.head.value.block.store(next, Ordering.Release)
+                this.head.value.index.store(next_index, Ordering.Release)
             }
             // Read the task.
             val slot = block.slots.get_unchecked(offset)
@@ -1680,7 +1680,7 @@ public class Injector<T>(
                 Ordering.Relaxed
             }
             // Update the back index in the destination queue.
-            dest.inner.back.store((dest_b + (batch_size.toLong())), store_order)
+            dest.inner.value.back.store((dest_b + (batch_size.toLong())), store_order)
             // Destroy the block if we've reached the end, or if another thread wanted to destroy
             // but couldn't because we were busy reading from the slot.
             if (new_offset == BLOCK_CAP) {
@@ -1713,8 +1713,8 @@ public class Injector<T>(
      * ```
      */
     public fun is_empty(): Boolean {
-        val head = this.head.index.load(Ordering.SeqCst)
-        val tail = this.tail.index.load(Ordering.SeqCst)
+        val head = this.head.value.index.load(Ordering.SeqCst)
+        val tail = this.tail.value.index.load(Ordering.SeqCst)
         return head shr SHIFT == tail shr SHIFT
     }
 
@@ -1737,10 +1737,10 @@ public class Injector<T>(
     public fun len(): Int {
         while (true) {
             // Load the tail index, then load the head index.
-            var tail = this.tail.index.load(Ordering.SeqCst)
-            var head = this.head.index.load(Ordering.SeqCst)
+            var tail = this.tail.value.index.load(Ordering.SeqCst)
+            var head = this.head.value.index.load(Ordering.SeqCst)
             // If the tail index didn't change, we've got consistent indices to work with.
-            if (this.tail.index.load(Ordering.SeqCst) == tail) {
+            if (this.tail.value.index.load(Ordering.SeqCst) == tail) {
                 // Erase the lower bits.
                 tail = tail and ((1 shl SHIFT) - 1).inv()
                 head = head and ((1 shl SHIFT) - 1).inv()
@@ -1765,9 +1765,9 @@ public class Injector<T>(
     }
 
     public fun drop() {
-        var head = this.head.index.get_mut()
-        var tail = this.tail.index.get_mut()
-        var block = this.head.block.get_mut()
+        var head = this.head.value.index.get_mut()
+        var tail = this.tail.value.index.get_mut()
+        var block = this.head.value.block.get_mut()
         // Erase the lower bits.
         head = head and ((1 shl SHIFT) - 1).inv()
         tail = tail and ((1 shl SHIFT) - 1).inv()

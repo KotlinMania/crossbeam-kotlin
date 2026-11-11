@@ -48,3 +48,30 @@ implemented.
 No shared-foundation source was changed, no synthetic address or managed padding
 wrapper was added, and none of the upstream physical-layout or TLS-exit tests
 was replaced with a weaker metadata test.
+
+## Atomic API audit, 2026-11-11
+
+Inspected the existing atomics in both dependency projects before attempting imports.
+`threadlocal-kotlin/src/common/commonMain/kotlin/io/github/kotlinmania/threadlocal/atomics/Atomic.kt`
+contains `Atomic<T : AtomicPrimitive>` whose load, store and swap read and write the
+ordinary mutable `UnsafeCell` from `compat/Compat.kt`. They do not synchronize.
+`AtomicInt.kt` starts with an unmatched closing brace and a non-Kotlin `when order`
+expression; it supplies no usable integer atomic implementation. `AtomicBool.kt`
+uses `typealias AtomicBool = Atomic<Boolean>` despite that marker bound and contains
+unlowered Rust syntax. `compat/Compat.kt` explicitly contains a no-op atomicStore
+and throwing intrinsic functions. These files cannot safely replace Crossbeam's
+atomic operations merely by changing imports.
+
+The generated `rust-lang-kotlin/candidates/core/kotlin/org/rustlang/core/sync/atomic/Atomic_u64.kt`
+provides `load(Ordering?)`, returning `Long`, through `AtomicModule` and runtime
+`Pointer.receiverCellAligned`. It is not the emitted Crossbeam `AtomicU64.new` /
+`compare_exchange` API. The dependency's `runtime/build.gradle.kts` applies the JVM
+plugin, requires Java 25 and a pinned JVM runtime JAR. Runtime Pointer imports
+`java.lang.invoke`, reflection and Java concurrent atomics. Wiring that runtime
+into commonMain would violate the required Native/JS/Wasm target surface.
+
+No dependency source was modified. The generated Crossbeam dereference and
+collection repairs do not implement or replace these missing foundational APIs.
+The remaining dependency blocker is a real portable atomic/pointer/synchronization
+implementation, not locating the files. A full build is not rerun while those
+known missing source dependencies remain unresolved.

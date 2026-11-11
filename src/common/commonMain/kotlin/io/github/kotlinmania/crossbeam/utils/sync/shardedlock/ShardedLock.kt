@@ -107,7 +107,7 @@ public class ShardedLock<T>(
      * The internal data.
      */
     public var value: UnsafeCell<T> = UnsafeCell<T>(),
-) : From<T> {
+) {
     /**
      * Consumes this lock, returning the underlying data.
      *
@@ -160,7 +160,7 @@ public class ShardedLock<T>(
      * ```
      */
     public fun is_poisoned(): Boolean {
-        return this.shards[0].lock.is_poisoned()
+        return this.shards[0].value.lock.is_poisoned()
     }
 
     /**
@@ -227,9 +227,9 @@ public class ShardedLock<T>(
         // Take the current thread index and map it to a shard index. Thread indices will tend to
         // distribute shards among threads equally, thus reducing contention due to read-locking.
         val current_index = current_index().unwrap_or(0)
-        val shard_index = current_index and (this.shards.len() - 1)
+        val shard_index = current_index and (this.shards.size - 1)
         return run {
-            val matchVal = this.shards[shard_index].lock.try_read()
+            val matchVal = this.shards[shard_index].value.lock.try_read()
             when {
                 matchVal is Ok -> {
                     val (guard) = matchVal
@@ -283,9 +283,9 @@ public class ShardedLock<T>(
         // Take the current thread index and map it to a shard index. Thread indices will tend to
         // distribute shards among threads equally, thus reducing contention due to read-locking.
         val current_index = current_index().unwrap_or(0)
-        val shard_index = current_index and (this.shards.len() - 1)
+        val shard_index = current_index and (this.shards.size - 1)
         return run {
-            val matchVal = this.shards[shard_index].lock
+            val matchVal = this.shards[shard_index].value.lock
             if (matchVal.isSuccess) {
                 val guard = matchVal.getOrThrow()
                 Result.success(ShardedLockReadGuard(lock = this, _guard = guard, _marker = Unit))
@@ -322,11 +322,11 @@ public class ShardedLock<T>(
      */
     public fun try_write(): TryLockResult<ShardedLockWriteGuard<T>> {
         var poisoned = false
-        var blocked = null
+        var blocked: Int? = null
         // Write-lock each shard in succession.
-        for ((i, shard) in this.shards.enumerate()) {
+        for ((i, shard) in this.shards.withIndex()) {
             val guard1 = run {
-                val matchVal = shard.lock.try_write()
+                val matchVal = shard.value.lock.try_write()
                 when {
                     matchVal is Ok -> {
                         val (guard) = matchVal
@@ -346,15 +346,15 @@ public class ShardedLock<T>(
             // Store the guard into the shard.
             run {
                 val guard2: RwLockWriteGuard<Unit> = mem.transmute(guard1)
-                val dest: Long = shard.write_guard.get()
+                val dest: Long = shard.value.write_guard.get()
                 dest = MaybeUninit.new(guard2)
             }
         }
         return if (blocked != null) {
             val i1 = blocked
             // Unlock the shards in reverse order of locking.
-            for (shard1 in ((this.shards).slice(0 until i1)).iter().rev()) {
-                val dest1: Long = shard1.write_guard.get()
+            for (shard1 in this.shards.take(i1).asReversed()) {
+                val dest1: Long = shard1.value.write_guard.get()
                 // SAFETY: we've acquired lock and filled write_guard of self.shards[0..i].
                 // Note that drop_in_place cannot be used because it releases the lock during the drop.
                 val guard3 = dest1!!
@@ -402,9 +402,9 @@ public class ShardedLock<T>(
     public fun write(): LockResult<ShardedLockWriteGuard<T>> {
         var poisoned = false
         // Write-lock each shard in succession.
-        for (shard in this.shards.iter()) {
+        for (shard in this.shards) {
             val guard1 = run {
-                val matchVal = shard.lock.write()
+                val matchVal = shard.value.lock.write()
                 if (matchVal.isSuccess) {
                     val guard = matchVal.getOrThrow()
                     guard
@@ -418,7 +418,7 @@ public class ShardedLock<T>(
             run {
                 val guard2: RwLockWriteGuard<Unit> = guard1
                 val guard3: RwLockWriteGuard<Unit> = mem.transmute(guard2)
-                val dest: Long = shard.write_guard.get()
+                val dest: Long = shard.value.write_guard.get()
                 dest = MaybeUninit.new(guard3)
             }
         }
@@ -468,7 +468,7 @@ public class ShardedLock<T>(
         public fun <T> new(value: T): ShardedLock<T> {
             return ShardedLock(shards = (0 until NUM_SHARDS).map({
                 CachePadded.new(Shard(lock = RwLock.new(), write_guard = UnsafeCell.new(0L)))
-            }).collect<List<Any?>>(), value = UnsafeCell.new(value))
+            }), value = UnsafeCell.new(value))
         }
 
         public fun <T> from(t: T): ShardedLock<T> {
@@ -504,8 +504,8 @@ public class ShardedLockReadGuard<T>(
 public class ShardedLockWriteGuard<T>(public var lock: ShardedLock<T> = ShardedLock<T>(), public var _marker: Unit = Unit) {
     public fun drop() {
         // Unlock the shards in reverse order of locking.
-        for (shard in this.lock.shards.iter().rev()) {
-            val dest: Long = shard.write_guard.get()
+        for (shard in this.lock.shards.asReversed()) {
+            val dest: Long = shard.value.write_guard.get()
             // SAFETY: ShardedLockWriteGuard is constructed only when all locks have been acquired.
             // Note that drop_in_place cannot be used because it releases the lock during the drop.
             val guard = dest!!

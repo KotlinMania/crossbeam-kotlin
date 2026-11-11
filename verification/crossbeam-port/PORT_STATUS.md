@@ -21,3 +21,21 @@ Six Rust inputs still reject explicitly: AtomicCell, WaitGroup, Collector, Guard
 Local Git was initialized before further replacement. Commit `cb6b8aa6d081b545196574010e1de72c7133dace` preserves the initial current tree; `25f46a03696e8ab9c26e9e6637f54bc05693ac6d` preserves regeneration and configuration repairs. Earlier deleted files were not recovered. No remote is configured.
 
 All configured targets and Native/JVM/N-API channels remain enabled. No CI, push, PR, merge, publication or release was performed.
+
+## Direct source follow-up
+
+On 2026-11-11, repaired the generated Deque and ShardedLock accesses to explicitly
+unwrap CachePadded payloads, retain shared Kotlin references instead of calling
+an absent Arc clone, and use actual Kotlin list size/iteration/reversal APIs.
+Removed impossible generic CachePadded defaults and nonexistent From/Display
+trait references, and connected CachePadded's debug string to its emitted fmt.
+The CachePadded documentation explicitly discloses that physical layout is still
+unimplemented. No physical-layout, ownership or concurrency test was weakened.
+
+Exact regeneration patches for these changes were checked by reversing each to
+its committed preimage and replaying it to the current source. Python driver
+syntax and git whitespace checks passed. No compilation or tests were rerun:
+the port is still unfinished and the existing atomics in threadlocal-kotlin and
+rust-lang-kotlin are not presently a portable working foundation. See the dated
+atomic API audit in RUST_LANG_FOUNDATION_REVIEW.md. The previous full-build failure
+and eight focused-test result remain the latest execution evidence.

@@ -1,7 +1,7 @@
 // port-lint: source crossbeam-utils/src/cache_padded.rs
 package io.github.kotlinmania.crossbeam.utils.cachepadded
 
-public class DebugStruct(
+private class DebugStruct(
     private val out: StringBuilder,
     private val name: String,
 ) {
@@ -74,6 +74,9 @@ public class DebugStruct(
 /**
  * Pads and aligns a value to the length of a cache line.
  *
+ * Port limitation: the generated Kotlin holder currently preserves value access only.
+ * Physical padding, alignment and repr(C) layout have not been implemented or verified.
+ *
  * In concurrent programming, sometimes it is desirable to make sure commonly accessed pieces of
  * data are not placed into the same cache line. Updating an atomic value invalidates the whole
  * cache line it belongs to, which makes the next access to the same cache line slower for other
@@ -135,7 +138,7 @@ public class DebugStruct(
  * )
  * ```
  */
-public class CachePadded<T>(public var value: T = T()) : From<T> {
+public class CachePadded<T>(public var value: T) {
     /**
      * Returns the inner value.
      *
@@ -161,12 +164,14 @@ public class CachePadded<T>(public var value: T = T()) : From<T> {
         return this.value
     }
 
+    override fun toString(): String = StringBuilder().also { fmt(it) }.toString()
+
     public fun fmt(f: StringBuilder) {
         DebugStruct(f, "CachePadded").field("value", this.value).finish()
     }
 
     public fun fmtDisplay(f: StringBuilder) {
-        fmt.Display.fmt(this.value, f)
+        f.append(this.value)
     }
 
     public companion object {
